@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "phantom-aws": {
+      "command": "node",
+      "args": ["server/mcp-stdio.js"],
+      "env": {
+        "DEMO_MODE": "true"
+      },
+      "disabled": false,
+      "autoApprove": ["list_buckets", "upload_file"]
+    }
+  }
+}

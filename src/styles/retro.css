@@ -1,0 +1,482 @@
+/**
+ * Retro CSS - 2006 Web Design at its finest
+ * 
+ * No flexbox. No grid. No CSS variables.
+ * Just pure, unadulterated table-based layouts and floats.
+ * This is how REAL web developers did it.
+ */
+
+/* Reset - because browsers in 2006 were wild */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Body - the foundation of our haunted console */
+body {
+  font-family: 'Verdana', 'Times New Roman', serif;
+  font-size: 12px;
+  line-height: 1.4;
+  background-color: #CCCCCC;
+  color: #000000;
+}
+
+/* Main container - fixed width like a proper 2006 website */
+.phantom-container {
+  width: 1024px;
+  margin: 0 auto;
+  background-color: #FFFFFF;
+  border: 1px solid #003366;
+}
+
+/* Header - AWS Orange glory */
+.phantom-header {
+  background-color: #FF9900;
+  padding: 10px 15px;
+  border-bottom: 3px solid #003366;
+}
+
+.phantom-header h1 {
+  font-size: 18px;
+  font-weight: bold;
+  color: #003366;
+  font-family: 'Verdana', sans-serif;
+}
+
+.phantom-header .tagline {
+  font-size: 11px;
+  color: #003366;
+  font-style: italic;
+}
+
+/* Navigation - table-based, naturally */
+.phantom-nav {
+  background-color: #003366;
+  padding: 5px 15px;
+}
+
+.phantom-nav a {
+  color: #FFFFFF;
+  text-decoration: none;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.phantom-nav a:hover {
+  background-color: #FF9900;
+  color: #003366;
+}
+
+
+/* Main content area */
+.phantom-main {
+  padding: 15px;
+  min-height: 400px;
+}
+
+/* Section headers */
+.section-header {
+  background-color: #003366;
+  color: #FFFFFF;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+/* Buttons - beveled like it's 1999 */
+.retro-button {
+  font-family: 'Verdana', sans-serif;
+  font-size: 11px;
+  padding: 4px 12px;
+  background-color: #CCCCCC;
+  border-style: outset;
+  border-width: 3px;
+  border-color: #FFFFFF #666666 #666666 #FFFFFF;
+  cursor: pointer;
+  color: #000000;
+}
+
+.retro-button:hover {
+  background-color: #FF9900;
+}
+
+.retro-button:active {
+  border-style: inset;
+}
+
+.retro-button-primary {
+  background-color: #FF9900;
+  font-weight: bold;
+}
+
+/* Links - blue and underlined, as God intended */
+a {
+  color: #0000FF;
+  text-decoration: underline;
+}
+
+a:visited {
+  color: #800080;
+}
+
+a:hover {
+  color: #FF0000;
+}
+
+/* Tables - the backbone of Web 2.0 layouts */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #003366;
+  margin-bottom: 15px;
+}
+
+.data-table th {
+  background-color: #003366;
+  color: #FFFFFF;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: bold;
+  border: 1px solid #003366;
+}
+
+.data-table td {
+  padding: 6px 10px;
+  border: 1px solid #CCCCCC;
+  font-size: 11px;
+}
+
+.data-table tr:nth-child(even) {
+  background-color: #F0F0F0;
+}
+
+.data-table tr:hover {
+  background-color: #FFFFCC;
+}
+
+/* Status messages */
+.status-box {
+  padding: 10px;
+  margin: 10px 0;
+  border: 2px solid;
+}
+
+.status-success {
+  background-color: #CCFFCC;
+  border-color: #006400;
+  color: #006400;
+}
+
+.status-error {
+  background-color: #FFCCCC;
+  border-color: #8B0000;
+  color: #8B0000;
+}
+
+.status-info {
+  background-color: #CCCCFF;
+  border-color: #003366;
+  color: #003366;
+}
+
+/* Loading indicator - animated GIF style */
+.loading {
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  color: #666666;
+}
+
+.loading::after {
+  content: '...';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+
+/* Footer */
+.phantom-footer {
+  background-color: #003366;
+  color: #FFFFFF;
+  padding: 10px 15px;
+  font-size: 10px;
+  text-align: center;
+  border-top: 3px solid #FF9900;
+}
+
+.phantom-footer a {
+  color: #FF9900;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   🎃 SPOOKY EFFECTS - The Horror Engine
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Screen Tearing Effect */
+@keyframes screen-tear {
+  0% { 
+    transform: translateX(0); 
+    filter: none;
+  }
+  10% { 
+    transform: translateX(-20px) skewX(5deg); 
+    filter: hue-rotate(90deg);
+  }
+  20% { 
+    transform: translateX(15px) skewX(-3deg); 
+    filter: saturate(200%);
+  }
+  30% { 
+    transform: translateX(-10px) skewX(2deg); 
+    filter: hue-rotate(-90deg);
+  }
+  40% { 
+    transform: translateX(8px) skewX(-1deg); 
+    filter: brightness(150%);
+  }
+  50% { 
+    transform: translateX(-5px); 
+    filter: contrast(150%);
+  }
+  60% {
+    transform: translateX(3px) skewX(1deg);
+    filter: invert(100%);
+  }
+  70% {
+    transform: translateX(-2px);
+    filter: none;
+  }
+  100% { 
+    transform: translateX(0); 
+    filter: none;
+  }
+}
+
+/* Blood Dripping Effect */
+@keyframes blood-drip {
+  0% { 
+    height: 0; 
+    opacity: 0.9; 
+  }
+  30% {
+    height: 80px;
+    opacity: 0.8;
+  }
+  60% { 
+    height: 120px; 
+    opacity: 0.6; 
+  }
+  100% { 
+    height: 150px; 
+    opacity: 0; 
+  }
+}
+
+/* Glitch overlay class - applied to body on error */
+body.glitch {
+  animation: screen-tear 0.5s ease-in-out;
+}
+
+body.glitch-intense {
+  animation: screen-tear 2s ease-in-out;
+}
+
+/* Blood drip container */
+.blood-drip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: linear-gradient(
+    to bottom,
+    #8B0000 0%,
+    #660000 30%,
+    #4A0000 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 9999;
+  animation: blood-drip 2s ease-out forwards;
+}
+
+/* Scanlines overlay - CRT monitor effect */
+.scanlines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1) 0px,
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+}
+
+/* Red flash on error */
+@keyframes red-flash {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(139, 0, 0, 0.3); }
+}
+
+.error-flash {
+  animation: red-flash 0.3s ease-in-out 3;
+}
+
+/* Ghost Agent Styles */
+.ghost-agent {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 300px;
+  background-color: #FFFFCC;
+  border: 3px solid #003366;
+  border-radius: 0;
+  box-shadow: 5px 5px 0px #666666;
+  z-index: 9999;
+  font-family: 'Verdana', sans-serif;
+  font-size: 11px;
+}
+
+.ghost-agent-header {
+  background-color: #003366;
+  color: #FFFFFF;
+  padding: 5px 10px;
+  font-weight: bold;
+  cursor: move;
+}
+
+.ghost-agent-header .close-btn {
+  float: right;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.ghost-agent-body {
+  padding: 10px;
+}
+
+.ghost-agent-avatar {
+  float: left;
+  width: 60px;
+  height: 60px;
+  margin-right: 10px;
+  background-color: #CCCCCC;
+  border: 2px solid #003366;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+}
+
+.ghost-agent-message {
+  overflow: hidden;
+  min-height: 60px;
+}
+
+.ghost-agent-minimized {
+  width: 60px;
+  height: 60px;
+  cursor: pointer;
+}
+
+.ghost-agent-minimized .ghost-eyes {
+  font-size: 30px;
+  text-align: center;
+  line-height: 54px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   🎃 GHOST GLITCH EFFECT - When the Phantom speaks
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes ghost-shake {
+  0% { transform: translate(0, 0) skewX(0deg); }
+  10% { transform: translate(-2px, 1px) skewX(1deg); }
+  20% { transform: translate(2px, -1px) skewX(-1deg); }
+  30% { transform: translate(-1px, 2px) skewX(0.5deg); }
+  40% { transform: translate(1px, -2px) skewX(-0.5deg); }
+  50% { transform: translate(-2px, 1px) skewX(1deg); }
+  60% { transform: translate(2px, 1px) skewX(-1deg); }
+  70% { transform: translate(-1px, -1px) skewX(0.5deg); }
+  80% { transform: translate(1px, 2px) skewX(-0.5deg); }
+  90% { transform: translate(-1px, -2px) skewX(0deg); }
+  100% { transform: translate(0, 0) skewX(0deg); }
+}
+
+body.ghost-glitch {
+  animation: ghost-shake 0.5s ease-in-out;
+}
+
+body.ghost-glitch .phantom-container {
+  filter: hue-rotate(10deg) saturate(120%);
+}
+
+/* Ghost agent glitching state */
+.ghost-agent.glitching {
+  animation: ghost-shake 0.3s ease-in-out;
+  box-shadow: 
+    5px 5px 0px #666666,
+    -2px 0 #8B0000,
+    2px 0 #003366;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   🩸 BLOOD HEADER EFFECT - When uploading
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes blood-pulse {
+  0% { background-color: #FF9900; }
+  50% { background-color: #8B0000; }
+  100% { background-color: #FF9900; }
+}
+
+.phantom-header.bleeding {
+  animation: blood-pulse 1s ease-in-out;
+}
+
+.phantom-header.bleeding h1,
+.phantom-header.bleeding .tagline {
+  color: #FFFFFF;
+}
+
+/* Enhanced ghost agent minimized state */
+.ghost-agent-minimized {
+  background-color: #1a1a1a;
+  border-color: #8B0000;
+}
+
+.ghost-agent-minimized .ghost-eyes {
+  animation: blink 3s infinite;
+}
+
+@keyframes blink {
+  0%, 90%, 100% { opacity: 1; }
+  95% { opacity: 0.3; }
+}
+
+/* Ghost agent avatar pulse */
+.ghost-agent-avatar {
+  animation: avatar-pulse 2s infinite;
+}
+
+@keyframes avatar-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}

@@ -1,0 +1,10 @@
+# Audio files directory
+# Add the following audio files:
+# - dialup.mp3 (3-second modem handshake sound)
+# - hdd-crunch.mp3 (hard drive read/write noise)
+# - error.mp3 (Windows XP error sound or similar)
+#
+# You can find royalty-free versions of these sounds at:
+# - freesound.org
+# - soundbible.com
+# - archive.org
