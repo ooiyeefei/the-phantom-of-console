@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
   
   try {
     // Route: POST /api/buckets-with-creds (frontend sends credentials per-request)
-    if (url === '/api/buckets-with-creds' && method === 'POST') {
+    if (url.startsWith('/api/buckets-with-creds') && method === 'POST') {
       // In demo mode, ignore credentials and return ghost buckets
       var result = await listBuckets();
       return res.status(200).json(result);
