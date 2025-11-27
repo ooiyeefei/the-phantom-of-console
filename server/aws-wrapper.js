@@ -4,7 +4,7 @@
  * In 2006, we trust the command line - it's the only way to talk to S3!
  */
 
-import { exec } from 'child_process';
+var exec = require('child_process').exec;
 
 // 🎃 SÉANCE MODE: No more ghost buckets - real AWS only!
 var MOCK_BUCKETS = [];
@@ -131,7 +131,7 @@ function parseS3ObjectsOutput(output) {
  * List all S3 buckets - the crown jewel of AWS services
  * S3 just launched this year and it's going to change everything!
  */
-export async function listBuckets() {
+async function listBuckets() {
   // Simulate that sweet 2006 network latency
   await simulateLatency(800);
   
@@ -155,7 +155,7 @@ export async function listBuckets() {
  * List all objects in an S3 bucket - browse your cloud files!
  * @param {string} bucketName - The bucket to list objects from
  */
-export async function listBucketObjects(bucketName) {
+async function listBucketObjects(bucketName) {
   // Simulate that sweet 2006 network latency
   await simulateLatency(800);
   
@@ -196,7 +196,7 @@ export async function listBucketObjects(bucketName) {
  * @param {string} fileName - The name of the file
  * @param {string} filePath - Local path to the file
  */
-export async function uploadFile(bucketName, fileName, filePath) {
+async function uploadFile(bucketName, fileName, filePath) {
   // Simulate upload latency - remember, bandwidth costs money!
   await simulateLatency(800);
   
@@ -233,7 +233,7 @@ export async function uploadFile(bucketName, fileName, filePath) {
 /**
  * Validate AWS credentials - make sure we can talk to Amazon
  */
-export async function validateCredentials() {
+async function validateCredentials() {
   if (isDemoMode()) {
     return { valid: true, mode: 'seance' };
   }
@@ -253,7 +253,7 @@ export async function validateCredentials() {
  * @param {string} key - The file key (path) in the bucket
  * @param {number} expiresIn - Time in seconds until URL expires (default 3600)
  */
-export async function generatePresignedUrl(bucketName, key, expiresIn) {
+async function generatePresignedUrl(bucketName, key, expiresIn) {
   // Default to 1 hour if not specified
   expiresIn = expiresIn || 3600;
   
@@ -292,3 +292,12 @@ export async function generatePresignedUrl(bucketName, key, expiresIn) {
     };
   }
 }
+
+// Export all functions for CommonJS (Vercel serverless compatibility)
+module.exports = {
+  listBuckets: listBuckets,
+  listBucketObjects: listBucketObjects,
+  uploadFile: uploadFile,
+  validateCredentials: validateCredentials,
+  generatePresignedUrl: generatePresignedUrl
+};
