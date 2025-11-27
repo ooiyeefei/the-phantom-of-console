@@ -860,10 +860,11 @@ class App extends Component<{}, AppState> {
           // File is too large - check if CORS is configured
           self.setState({ uploading: true, uploadingFileName: file.name });
           
-          // Save upload state to localStorage to detect interruptions
-          localStorage.setItem('phantom_upload_in_progress', JSON.stringify({
-            fileName: file.name,
-            bucketName: bucketName,
+          // Initialize chunked upload progress tracking
+          var uploadKey = 'phantom_upload_progress_' + bucketName + '_' + file.name;
+          localStorage.setItem(uploadKey, JSON.stringify({
+            lastCompletedChunk: -1,
+            totalChunks: Math.ceil(arrayBuffer.byteLength / (5 * 1024 * 1024)),
             timestamp: Date.now()
           }));
           
@@ -886,7 +887,10 @@ class App extends Component<{}, AppState> {
                 self.setState({ uploadProgress: progress.percentage });
               }).then(function(result) {
                 self.setState({ uploading: false, uploadingFileName: '', uploadProgress: 0 });
-                localStorage.removeItem('phantom_upload_in_progress');
+                
+                // Clean up upload progress tracking
+                var uploadKey = 'phantom_upload_progress_' + bucketName + '_' + file.name;
+                localStorage.removeItem(uploadKey);
                 
                 if (result.success) {
                   var successMessages = [
