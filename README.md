@@ -5,6 +5,10 @@
 
 A **Kiroween Hackathon** entry in the **"Resurrection"** category. This project brings the 2006 AWS Console back from the dead, complete with a haunted AI assistant who despises modern technology.
 
+## 🎭 The Name
+
+Inspired by *"The Phantom of the Opera"*, where the Phantom lurks behind the scenes of the Paris Opera House, controlling the theater from the shadows. Similarly, AWS operates behind the console, powering the infrastructure that runs the modern web. Just as the Phantom was the unseen force behind the opera's grandeur, AWS is the invisible infrastructure behind countless applications—always there, always watching, always... waiting in the data center.
+
 ## 🎃 What is this?
 
 **S3 Made Easy: Manage • Upload • Share Securely**

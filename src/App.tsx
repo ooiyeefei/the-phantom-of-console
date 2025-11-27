@@ -956,7 +956,7 @@ class App extends Component<{}, AppState> {
         
         {/* Header - AWS Orange Glory (or Blood Red when bleeding) */}
         <header className={headerClass}>
-          <h1 style={{ display: 'inline-block' }}>👻 Amazon Web Services - S3 Management Console</h1>
+          <h1 style={{ display: 'inline-block' }}>👻 The Phantom of the Console</h1>
           <button 
             className="retro-button"
             style={{ 
