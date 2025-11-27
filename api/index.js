@@ -694,6 +694,7 @@ module.exports = async function handler(req, res) {
         });
         
         // Configure CORS to allow uploads from any origin
+        // Includes all headers needed for multipart uploads
         var corsCommand = new PutBucketCorsCommand({
           Bucket: body.bucketName,
           CORSConfiguration: {
@@ -702,7 +703,13 @@ module.exports = async function handler(req, res) {
                 AllowedHeaders: ['*'],
                 AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
                 AllowedOrigins: ['*'],
-                ExposeHeaders: ['ETag'],
+                ExposeHeaders: [
+                  'ETag',
+                  'x-amz-server-side-encryption',
+                  'x-amz-request-id',
+                  'x-amz-id-2',
+                  'x-amz-version-id'
+                ],
                 MaxAgeSeconds: 3000
               }
             ]
