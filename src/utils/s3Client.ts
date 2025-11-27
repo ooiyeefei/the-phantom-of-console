@@ -98,7 +98,8 @@ export async function listBucketObjectsClient(bucketName: string): Promise<{ obj
 }
 
 /**
- * Upload file to S3 bucket using server proxy with client credentials
+ * Upload file to S3 bucket using AWS SDK directly from browser
+ * No server proxy needed - credentials stay in browser!
  */
 export async function uploadFileClient(
   bucketName: string, 
@@ -115,37 +116,22 @@ export async function uploadFileClient(
   }
   
   try {
-    // Convert ArrayBuffer to base64 for JSON transport
-    // Use chunked approach to avoid call stack size exceeded error on large files
-    var bytes = new Uint8Array(fileContent);
-    var binary = '';
-    var chunkSize = 8192; // Process 8KB at a time
+    // Create S3 client with credentials
+    var s3Client = createS3Client(creds);
     
-    for (var i = 0; i < bytes.length; i += chunkSize) {
-      var chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    
-    var base64 = btoa(binary);
-    
-    var response = await fetch('/api/upload-with-creds', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        credentials: creds,
-        bucketName: bucketName,
-        fileName: fileName,
-        fileContent: base64
-      })
+    // Upload directly using AWS SDK - much more efficient!
+    var command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: fileName,
+      Body: new Uint8Array(fileContent)
     });
     
-    var result = await response.json();
+    await s3Client.send(command);
     
-    if (result.success) {
-      return { success: true, url: result.url };
-    } else {
-      return { success: false, error: result.error?.message || result.error || 'Upload failed' };
-    }
+    return { 
+      success: true, 
+      url: 'https://s3.amazonaws.com/' + bucketName + '/' + fileName 
+    };
   } catch (error: any) {
     return {
       success: false,
