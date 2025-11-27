@@ -15,7 +15,7 @@ import GhostAgent from './components/GhostAgent';
 import SpookyEffects from './components/SpookyEffects';
 import CredentialsModal from './components/CredentialsModal';
 import { hasCredentials } from './utils/awsCredentials';
-import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient, configureBucketCors } from './utils/s3Client';
+import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient, configureBucketCors, checkBucketCors, uploadLargeFileClient } from './utils/s3Client';
 
 // Web 2.0 compliant interface definitions
 interface S3Bucket {
@@ -738,18 +738,45 @@ class App extends Component<{}, AppState> {
       var reader = new FileReader();
       reader.onload = function(e) {
         var arrayBuffer = e.target?.result as ArrayBuffer;
+        
+        // Check file size first
+        var maxSize = 3 * 1024 * 1024; // 3MB
+        if (arrayBuffer.byteLength > maxSize) {
+          // File is too large - check if CORS is configured
+          checkBucketCors(bucketName).then(function(corsResult) {
+            if (corsResult.configured) {
+              // CORS is configured - use presigned URL upload for large files
+              self.triggerGhost('upload', 'Large file detected! Using direct S3 upload since CORS is configured. In MY day, we had to split files into 1.44MB chunks and mail them on floppy disks!');
+              uploadLargeFileClient(bucketName, file.name, arrayBuffer).then(function(result) {
+                if (result.success) {
+                  self.triggerGhost('success', 'Large file uploaded successfully! That would have taken 3 DAYS on a 56k modem! Kids these days don\'t appreciate broadband...');
+                  self.loadBuckets();
+                } else {
+                  self.handleError({
+                    code: 'UploadError',
+                    message: result.error || 'Upload failed',
+                    service: 'S3'
+                  });
+                }
+              });
+            } else {
+              // CORS not configured - show error with config button
+              self.triggerGhost('error', 'WHOA THERE! That file is TOO BIG for our serverless function! Files must be under 3MB. In MY day, we had 1.44MB floppy disks and we were GRATEFUL!');
+              self.handleError({
+                code: 'FileTooLarge',
+                message: 'File is too large (' + (arrayBuffer.byteLength / 1024 / 1024).toFixed(1) + ' MB). Maximum size is 3 MB due to serverless function limits.',
+                service: 'S3'
+              });
+            }
+          });
+          return;
+        }
+        
+        // File is small enough - use API proxy
         uploadFileClient(bucketName, file.name, arrayBuffer).then(function(result) {
           if (result.success) {
             self.triggerGhost('success', 'Fine, your file uploaded. But don\'t come crying to me when "the cloud" loses all your data! I\'ve seen things... terrible things in us-east-1.');
             self.loadBuckets();
-          } else if (result.tooLarge) {
-            // File is too large - show helpful message with CORS config option
-            self.triggerGhost('error', 'WHOA THERE! That file is TOO BIG for our serverless function! Files must be under 3MB. In MY day, we had 1.44MB floppy disks and we were GRATEFUL!');
-            self.handleError({
-              code: 'FileTooLarge',
-              message: result.error || 'File is too large (max 3MB)',
-              service: 'S3'
-            });
           } else {
             self.handleError({
               code: 'UploadError',

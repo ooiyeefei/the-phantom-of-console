@@ -18,6 +18,7 @@ var ListBucketsCommand = require('@aws-sdk/client-s3').ListBucketsCommand;
 var ListObjectsV2Command = require('@aws-sdk/client-s3').ListObjectsV2Command;
 var PutObjectCommand = require('@aws-sdk/client-s3').PutObjectCommand;
 var PutBucketCorsCommand = require('@aws-sdk/client-s3').PutBucketCorsCommand;
+var GetBucketCorsCommand = require('@aws-sdk/client-s3').GetBucketCorsCommand;
 var getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
 var GetObjectCommand = require('@aws-sdk/client-s3').GetObjectCommand;
 var GetBucketLocationCommand = require('@aws-sdk/client-s3').GetBucketLocationCommand;
@@ -562,6 +563,85 @@ module.exports = async function handler(req, res) {
         return res.status(500).json(result);
       } else {
         return res.status(200).json(result);
+      }
+    }
+    
+    // Route: POST /api/check-bucket-cors (check if CORS is configured)
+    if (url.startsWith('/api/check-bucket-cors') && method === 'POST') {
+      var body = req.body;
+      
+      // Extract credentials from nested object or top level
+      var creds = body.credentials || body;
+      
+      if (!creds || !creds.accessKeyId || !creds.secretAccessKey) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingCredentials',
+            message: 'AWS credentials are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      if (!body.bucketName) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingParameters',
+            message: 'bucketName is required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      try {
+        // Get bucket region
+        var tempClient = new S3Client({
+          region: creds.region || 'us-east-1',
+          credentials: {
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
+          }
+        });
+        
+        var bucketRegion = await getBucketRegion(tempClient, body.bucketName);
+        
+        // Create client with correct region
+        var s3Client = new S3Client({
+          region: bucketRegion,
+          credentials: {
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
+          }
+        });
+        
+        // Check if CORS is configured
+        var corsCommand = new GetBucketCorsCommand({
+          Bucket: body.bucketName
+        });
+        
+        try {
+          await s3Client.send(corsCommand);
+          // If we get here, CORS is configured
+          return res.status(200).json({
+            configured: true
+          });
+        } catch (corsError) {
+          // NoSuchCORSConfiguration error means CORS is not configured
+          if (corsError.name === 'NoSuchCORSConfiguration') {
+            return res.status(200).json({
+              configured: false
+            });
+          }
+          throw corsError;
+        }
+      } catch (error) {
+        return res.status(500).json({
+          error: {
+            code: error.name || 'CORSCheckError',
+            message: error.message || 'Failed to check CORS',
+            service: 'S3'
+          }
+        });
       }
     }
     

@@ -328,3 +328,108 @@ export async function configureBucketCors(
     };
   }
 }
+
+/**
+ * Check if CORS is configured on a bucket
+ * Returns true if CORS is configured, false otherwise
+ */
+export async function checkBucketCors(
+  bucketName: string
+): Promise<{ configured: boolean, error?: string }> {
+  var creds = loadCredentials();
+  
+  if (!creds) {
+    return { 
+      configured: false, 
+      error: 'No AWS credentials configured.' 
+    };
+  }
+  
+  try {
+    // Use server proxy to check CORS (credentials sent per-request)
+    var response = await fetch('/api/check-bucket-cors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        credentials: creds,
+        bucketName: bucketName
+      })
+    });
+    
+    var result = await response.json();
+    
+    return { configured: result.configured || false };
+  } catch (error: any) {
+    return {
+      configured: false,
+      error: 'Failed to check CORS: ' + error.message
+    };
+  }
+}
+
+/**
+ * Upload large file using presigned URL (requires CORS to be configured)
+ * This bypasses the 3MB API limit for files with CORS enabled
+ */
+export async function uploadLargeFileClient(
+  bucketName: string,
+  fileName: string,
+  fileContent: ArrayBuffer
+): Promise<{ success: boolean, url?: string, error?: string }> {
+  var creds = loadCredentials();
+  
+  if (!creds) {
+    return { 
+      success: false, 
+      error: 'No AWS credentials configured.' 
+    };
+  }
+  
+  try {
+    // Step 1: Get presigned URL from server
+    var presignResponse = await fetch('/api/get-upload-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        credentials: creds,
+        bucketName: bucketName,
+        fileName: fileName
+      })
+    });
+    
+    var presignResult = await presignResponse.json();
+    
+    if (!presignResult.uploadUrl) {
+      return { 
+        success: false, 
+        error: presignResult.error?.message || 'Failed to get upload URL' 
+      };
+    }
+    
+    // Step 2: Upload directly to S3 using presigned URL
+    var uploadResponse = await fetch(presignResult.uploadUrl, {
+      method: 'PUT',
+      body: fileContent,
+      headers: {
+        'Content-Type': 'application/octet-stream'
+      }
+    });
+    
+    if (!uploadResponse.ok) {
+      return {
+        success: false,
+        error: 'Upload failed: ' + uploadResponse.statusText
+      };
+    }
+    
+    return { 
+      success: true, 
+      url: 'https://s3.amazonaws.com/' + bucketName + '/' + fileName 
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: 'Failed to upload: ' + error.message
+    };
+  }
+}
