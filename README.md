@@ -18,7 +18,11 @@ The Phantom of the Console is a fully functional S3 management tool disguised as
 ### Core Features
 - **📦 Manage Buckets**: Browse, create, and organize your S3 buckets with a retro folder interface
 - **📤 Upload Files**: Drag-and-drop file uploads with instant feedback (and ghost interruptions!)
+  - **Large File Support**: Upload files of any size using S3 multipart upload API
+  - **True Resumable Uploads**: Survive page refreshes - pick up where you left off
+  - **Smart Region Detection**: Automatically detects bucket regions to prevent CORS errors
 - **🔗 Share Securely**: Generate temporary pre-signed URLs with custom expiration times (1hr, 24hr, 7 days)
+- **⚙️ One-Click CORS**: Configure bucket CORS settings with a single click for seamless uploads
 
 ### Spooky Extras
 - **Retro UI**: Table-based layouts, beveled buttons, and that classic orange/blue AWS color scheme

@@ -425,7 +425,8 @@ export async function uploadLargeFileClient(
   bucketName: string,
   fileName: string,
   fileContent: ArrayBuffer,
-  onProgress?: (progress: { uploadedChunks: number; totalChunks: number; percentage: number }) => void
+  onProgress?: (progress: { uploadedChunks: number; totalChunks: number; percentage: number }) => void,
+  bucketRegion?: string
 ): Promise<{ success: boolean, url?: string, error?: string }> {
   var creds = loadCredentials();
   
@@ -437,13 +438,13 @@ export async function uploadLargeFileClient(
   }
   
   try {
-    // CRITICAL: Get the bucket's actual region first!
-    // This prevents CORS errors when bucket is in different region than credentials
-    var bucketRegion = await getBucketRegion(bucketName);
-    console.log('Bucket region detected:', bucketRegion);
+    // Use provided bucket region or fallback to us-east-1
+    // The region should be passed from the bucket list to avoid CORS errors
+    var region = bucketRegion || 'us-east-1';
+    console.log('Using bucket region:', region);
     
     // Create S3 client with bucket's actual region
-    var s3Client = createS3Client(creds, bucketRegion);
+    var s3Client = createS3Client(creds, region);
     
     // For files under 10MB, use simple upload (no multipart needed)
     var multipartThreshold = 10 * 1024 * 1024; // 10MB

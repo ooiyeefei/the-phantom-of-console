@@ -914,11 +914,15 @@ class App extends Component<{}, AppState> {
               var randomUploadMsg = uploadMessages[Math.floor(Math.random() * uploadMessages.length)];
               self.triggerGhost('upload', randomUploadMsg);
               
+              // Find the bucket region from our bucket list
+              var bucket = self.state.buckets.find(function(b) { return b.name === bucketName; });
+              var bucketRegion = bucket ? bucket.region : 'us-east-1';
+              
               // Upload with progress tracking
               uploadLargeFileClient(bucketName, file.name, arrayBuffer, function(progress) {
                 // Update progress bar
                 self.setState({ uploadProgress: progress.percentage });
-              }).then(function(result) {
+              }, bucketRegion).then(function(result) {
                 self.setState({ uploading: false, uploadingFileName: '', uploadProgress: 0 });
                 
                 if (result.success) {
