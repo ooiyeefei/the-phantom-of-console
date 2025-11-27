@@ -93,17 +93,15 @@ class BucketTable extends Component<BucketTableProps, BucketTableState> {
     var self = this;
     self.setState({ uploadingTo: bucketName });
     
-    // Notify parent to trigger ghost (if callback provided)
+    // Trigger ghost animation and file picker simultaneously
     if (self.props.onUploadClick) {
       self.props.onUploadClick(bucketName);
     }
     
-    // Delay file input to let ghost appear first
-    setTimeout(function() {
-      if (self.fileInputRef) {
-        self.fileInputRef.click();
-      }
-    }, 1500);
+    // Open file picker immediately (no delay)
+    if (self.fileInputRef) {
+      self.fileInputRef.click();
+    }
   }
   
   /**
