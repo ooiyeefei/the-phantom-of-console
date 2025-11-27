@@ -98,8 +98,8 @@ export async function listBucketObjectsClient(bucketName: string): Promise<{ obj
 }
 
 /**
- * Upload file to S3 bucket using AWS SDK directly from browser
- * No server proxy needed - credentials stay in browser!
+ * Upload file to S3 bucket using server proxy (avoids CORS issues)
+ * Uses efficient chunked base64 encoding for large files
  */
 export async function uploadFileClient(
   bucketName: string, 
@@ -116,22 +116,37 @@ export async function uploadFileClient(
   }
   
   try {
-    // Create S3 client with credentials
-    var s3Client = createS3Client(creds);
+    // Convert ArrayBuffer to base64 using chunked approach for large files
+    var bytes = new Uint8Array(fileContent);
+    var binary = '';
+    var chunkSize = 8192; // Process 8KB at a time to avoid call stack issues
     
-    // Upload directly using AWS SDK - much more efficient!
-    var command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: fileName,
-      Body: new Uint8Array(fileContent)
+    for (var i = 0; i < bytes.length; i += chunkSize) {
+      var chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    var base64 = btoa(binary);
+    
+    // Send to server proxy which handles S3 upload (avoids CORS)
+    var response = await fetch('/api/upload-with-creds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        credentials: creds,
+        bucketName: bucketName,
+        fileName: fileName,
+        fileContent: base64
+      })
     });
     
-    await s3Client.send(command);
+    var result = await response.json();
     
-    return { 
-      success: true, 
-      url: 'https://s3.amazonaws.com/' + bucketName + '/' + fileName 
-    };
+    if (result.success) {
+      return { success: true, url: result.url };
+    } else {
+      return { success: false, error: result.error?.message || result.error || 'Upload failed' };
+    }
   } catch (error: any) {
     return {
       success: false,
