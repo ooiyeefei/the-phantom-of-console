@@ -7,7 +7,7 @@
  * This is the future of cloud computing! (circa 2006)
  */
 
-import { S3Client, ListBucketsCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, ListBucketsCommand, PutObjectCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
 import { loadCredentials, AWSCredentials } from './awsCredentials';
 
 // S3 Bucket interface
@@ -100,12 +100,14 @@ export async function listBucketObjectsClient(bucketName: string): Promise<{ obj
 /**
  * Upload file to S3 bucket via API proxy (avoids CORS issues)
  * Uploads through our Vercel API which then uploads to S3
+ * 
+ * LIMITATION: Files must be under 4MB due to Vercel serverless function limits
  */
 export async function uploadFileClient(
   bucketName: string, 
   fileName: string, 
   fileContent: ArrayBuffer
-): Promise<{ success: boolean, url?: string, error?: string }> {
+): Promise<{ success: boolean, url?: string, error?: string, tooLarge?: boolean }> {
   var creds = loadCredentials();
   
   if (!creds) {
@@ -115,13 +117,30 @@ export async function uploadFileClient(
     };
   }
   
+  // Check file size limit (4MB = 4 * 1024 * 1024 bytes)
+  // With base64 encoding overhead, we limit to 3MB actual file size
+  var maxFileSize = 3 * 1024 * 1024; // 3MB
+  if (fileContent.byteLength > maxFileSize) {
+    return {
+      success: false,
+      tooLarge: true,
+      error: 'File is too large (' + (fileContent.byteLength / 1024 / 1024).toFixed(1) + ' MB). Maximum size is 3 MB due to serverless function limits.'
+    };
+  }
+  
   try {
     // Convert ArrayBuffer to base64 for JSON transmission
+    // Use chunked approach for better performance with large files
     var bytes = new Uint8Array(fileContent);
-    var binary = '';
-    for (var i = 0; i < bytes.byteLength; i++) {
-      binary = binary + String.fromCharCode(bytes[i]);
+    var chunkSize = 8192; // Process 8KB at a time
+    var binaryChunks = [];
+    
+    for (var i = 0; i < bytes.byteLength; i += chunkSize) {
+      var chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength));
+      binaryChunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
     }
+    
+    var binary = binaryChunks.join('');
     var base64 = window.btoa(binary);
     
     // Upload via API proxy (avoids CORS issues)
@@ -265,5 +284,47 @@ export async function testCredentials(creds: AWSCredentials): Promise<{ valid: b
       return { valid: true, error: '⚠️ Could not verify with AWS (server offline). Credentials format looks valid - try saving anyway.' };
     }
     return { valid: false, error: 'Could not connect to server to verify credentials.' };
+  }
+}
+
+/**
+ * Configure CORS on an S3 bucket to allow large file uploads
+ * This enables direct browser-to-S3 uploads for files > 3MB
+ */
+export async function configureBucketCors(
+  bucketName: string
+): Promise<{ success: boolean, error?: string }> {
+  var creds = loadCredentials();
+  
+  if (!creds) {
+    return { 
+      success: false, 
+      error: 'No AWS credentials configured.' 
+    };
+  }
+  
+  try {
+    // Use server proxy to configure CORS (credentials sent per-request)
+    var response = await fetch('/api/configure-bucket-cors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        credentials: creds,
+        bucketName: bucketName
+      })
+    });
+    
+    var result = await response.json();
+    
+    if (result.success) {
+      return { success: true };
+    } else {
+      return { success: false, error: result.error?.message || result.error || 'Failed to configure CORS' };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: 'Failed to configure CORS: ' + error.message
+    };
   }
 }
