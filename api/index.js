@@ -19,6 +19,21 @@ var ListObjectsV2Command = require('@aws-sdk/client-s3').ListObjectsV2Command;
 var PutObjectCommand = require('@aws-sdk/client-s3').PutObjectCommand;
 var getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
 var GetObjectCommand = require('@aws-sdk/client-s3').GetObjectCommand;
+var GetBucketLocationCommand = require('@aws-sdk/client-s3').GetBucketLocationCommand;
+
+/**
+ * Get the region for a specific bucket
+ * AWS returns null for us-east-1 buckets (classic AWS!)
+ */
+async function getBucketRegion(s3Client, bucketName) {
+  try {
+    var command = new GetBucketLocationCommand({ Bucket: bucketName });
+    var response = await s3Client.send(command);
+    return response.LocationConstraint || 'us-east-1';
+  } catch (error) {
+    return 'us-east-1'; // Default fallback
+  }
+}
 
 /**
  * Main serverless function handler
@@ -71,13 +86,17 @@ module.exports = async function handler(req, res) {
         var command = new ListBucketsCommand({});
         var response = await s3Client.send(command);
         
-        var buckets = (response.Buckets || []).map(function(bucket) {
+        // Fetch actual regions for each bucket (in parallel for speed)
+        var bucketPromises = (response.Buckets || []).map(async function(bucket) {
+          var region = await getBucketRegion(s3Client, bucket.Name);
           return {
             name: bucket.Name,
             creationDate: bucket.CreationDate ? bucket.CreationDate.toISOString().split('T')[0] : 'unknown',
-            region: body.region || 'us-east-1'
+            region: region
           };
         });
+        
+        var buckets = await Promise.all(bucketPromises);
         
         return res.status(200).json({ buckets: buckets });
       } catch (error) {
@@ -143,8 +162,21 @@ module.exports = async function handler(req, res) {
       }
       
       try {
-        var s3Client = new S3Client({
+        // First, create a client to get the bucket's region
+        var tempClient = new S3Client({
           region: body.region || 'us-east-1',
+          credentials: {
+            accessKeyId: body.accessKeyId,
+            secretAccessKey: body.secretAccessKey
+          }
+        });
+        
+        // Get the bucket's actual region
+        var bucketRegion = await getBucketRegion(tempClient, bucketName);
+        
+        // Create a new client with the correct region
+        var s3Client = new S3Client({
+          region: bucketRegion,
           credentials: {
             accessKeyId: body.accessKeyId,
             secretAccessKey: body.secretAccessKey
@@ -214,8 +246,20 @@ module.exports = async function handler(req, res) {
       }
       
       try {
-        var s3Client = new S3Client({
+        // First, get the bucket's region
+        var tempClient = new S3Client({
           region: creds.region || 'us-east-1',
+          credentials: {
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
+          }
+        });
+        
+        var bucketRegion = await getBucketRegion(tempClient, body.bucketName);
+        
+        // Create client with correct region
+        var s3Client = new S3Client({
+          region: bucketRegion,
           credentials: {
             accessKeyId: creds.accessKeyId,
             secretAccessKey: creds.secretAccessKey
@@ -277,8 +321,20 @@ module.exports = async function handler(req, res) {
       }
       
       try {
-        var s3Client = new S3Client({
+        // First, get the bucket's region
+        var tempClient = new S3Client({
           region: creds.region || 'us-east-1',
+          credentials: {
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
+          }
+        });
+        
+        var bucketRegion = await getBucketRegion(tempClient, body.bucketName);
+        
+        // Create client with correct region
+        var s3Client = new S3Client({
+          region: bucketRegion,
           credentials: {
             accessKeyId: creds.accessKeyId,
             secretAccessKey: creds.secretAccessKey
