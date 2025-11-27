@@ -15,7 +15,8 @@ import {
   CreateMultipartUploadCommand,
   UploadPartCommand,
   CompleteMultipartUploadCommand,
-  AbortMultipartUploadCommand
+  AbortMultipartUploadCommand,
+  GetBucketLocationCommand
 } from '@aws-sdk/client-s3';
 import { loadCredentials, AWSCredentials } from './awsCredentials';
 
@@ -28,15 +29,47 @@ export interface S3Bucket {
 
 /**
  * Create S3 client with stored credentials
+ * Optionally specify a region (useful for bucket-specific operations)
+ * 
+ * Note: Uses forcePathStyle and follows region redirects automatically
  */
-function createS3Client(creds: AWSCredentials): S3Client {
+function createS3Client(creds: AWSCredentials, region?: string): S3Client {
+  // Use provided region, or credential region, or default to us-east-1
+  var effectiveRegion = region || creds.region || 'us-east-1';
   return new S3Client({
-    region: creds.region,
+    region: effectiveRegion,
     credentials: {
       accessKeyId: creds.accessKeyId,
       secretAccessKey: creds.secretAccessKey
-    }
+    },
+    forcePathStyle: false,
+    followRegionRedirects: true
   });
+}
+
+/**
+ * Get the actual region of a bucket
+ * AWS returns null for us-east-1 (classic AWS quirk!)
+ */
+async function getBucketRegion(bucketName: string): Promise<string> {
+  var creds = loadCredentials();
+  if (!creds) {
+    return 'us-east-1'; // Default fallback
+  }
+  
+  try {
+    // Use us-east-1 client to query bucket location
+    var s3Client = createS3Client(creds, 'us-east-1');
+    var command = new GetBucketLocationCommand({ Bucket: bucketName });
+    var response = await s3Client.send(command);
+    
+    // AWS returns null for us-east-1 buckets (classic!)
+    return response.LocationConstraint || 'us-east-1';
+  } catch (error) {
+    console.error('Failed to get bucket region:', error);
+    // Fallback to credential region or us-east-1
+    return creds.region || 'us-east-1';
+  }
 }
 
 /**
@@ -404,8 +437,13 @@ export async function uploadLargeFileClient(
   }
   
   try {
-    // Create S3 client with user credentials
-    var s3Client = createS3Client(creds);
+    // CRITICAL: Get the bucket's actual region first!
+    // This prevents CORS errors when bucket is in different region than credentials
+    var bucketRegion = await getBucketRegion(bucketName);
+    console.log('Bucket region detected:', bucketRegion);
+    
+    // Create S3 client with bucket's actual region
+    var s3Client = createS3Client(creds, bucketRegion);
     
     // For files under 10MB, use simple upload (no multipart needed)
     var multipartThreshold = 10 * 1024 * 1024; // 10MB

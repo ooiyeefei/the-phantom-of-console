@@ -42,7 +42,7 @@ function xorDecrypt(encoded: string, key: string): string {
 export interface AWSCredentials {
   accessKeyId: string;
   secretAccessKey: string;
-  region: string;
+  region?: string; // Optional - we detect bucket regions dynamically
 }
 
 /**
@@ -66,7 +66,12 @@ export function loadCredentials(): AWSCredentials | null {
   try {
     var json = xorDecrypt(encrypted, ENCRYPTION_SALT);
     var creds = JSON.parse(json);
-    if (creds.accessKeyId && creds.secretAccessKey && creds.region) {
+    // Region is optional - we detect it dynamically per bucket
+    if (creds.accessKeyId && creds.secretAccessKey) {
+      // Ensure region exists for backwards compatibility
+      if (!creds.region) {
+        creds.region = 'us-east-1';
+      }
       return creds;
     }
     return null;

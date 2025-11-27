@@ -26,23 +26,11 @@ interface CredentialsModalProps {
 interface CredentialsModalState {
   accessKeyId: string;
   secretAccessKey: string;
-  region: string;
   testing: boolean;
   testResult: string;
   testSuccess: boolean;
   hasExisting: boolean;
 }
-
-var AWS_REGIONS = [
-  'us-east-1',
-  'us-east-2', 
-  'us-west-1',
-  'us-west-2',
-  'eu-west-1',
-  'eu-central-1',
-  'ap-southeast-1',
-  'ap-northeast-1'
-];
 
 /**
  * CredentialsModal - The AWS Connection Wizard
@@ -56,7 +44,6 @@ class CredentialsModal extends Component<CredentialsModalProps, CredentialsModal
     this.state = {
       accessKeyId: '',
       secretAccessKey: '',
-      region: existing?.region || 'us-east-1',
       testing: false,
       testResult: '',
       testSuccess: false,
@@ -66,7 +53,6 @@ class CredentialsModal extends Component<CredentialsModalProps, CredentialsModal
     // Bind methods - Web 2.0 style!
     this.handleAccessKeyChange = this.handleAccessKeyChange.bind(this);
     this.handleSecretKeyChange = this.handleSecretKeyChange.bind(this);
-    this.handleRegionChange = this.handleRegionChange.bind(this);
     this.handleTest = this.handleTest.bind(this);
     this.handleSave = this.handleSave.bind(this);
     this.handleClear = this.handleClear.bind(this);
@@ -80,16 +66,13 @@ class CredentialsModal extends Component<CredentialsModalProps, CredentialsModal
     this.setState({ secretAccessKey: e.target.value, testResult: '' });
   }
   
-  handleRegionChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    this.setState({ region: e.target.value });
-  }
-  
   async handleTest() {
     var self = this;
+    // Use us-east-1 as default - we'll detect actual bucket regions dynamically
     var creds: AWSCredentials = {
       accessKeyId: self.state.accessKeyId,
       secretAccessKey: self.state.secretAccessKey,
-      region: self.state.region
+      region: 'us-east-1'
     };
     
     if (!creds.accessKeyId || !creds.secretAccessKey) {
@@ -130,10 +113,11 @@ class CredentialsModal extends Component<CredentialsModalProps, CredentialsModal
   
   handleSave() {
     var self = this;
+    // Use us-east-1 as default - we'll detect actual bucket regions dynamically
     var creds: AWSCredentials = {
       accessKeyId: self.state.accessKeyId,
       secretAccessKey: self.state.secretAccessKey,
-      region: self.state.region
+      region: 'us-east-1'
     };
     
     if (!creds.accessKeyId || !creds.secretAccessKey) {
@@ -238,7 +222,7 @@ class CredentialsModal extends Component<CredentialsModalProps, CredentialsModal
               }}>
                 <strong>✅ Credentials configured:</strong><br />
                 Access Key: {maskCredential(existing.accessKeyId)}<br />
-                Region: {existing.region}
+                <em>Bucket regions are detected automatically</em>
               </div>
             )}
             
@@ -283,28 +267,19 @@ class CredentialsModal extends Component<CredentialsModalProps, CredentialsModal
                     />
                   </td>
                 </tr>
-                <tr>
-                  <td style={{ padding: '8px 0', fontWeight: 'bold' }}>
-                    Region:
-                  </td>
-                  <td style={{ padding: '8px 0' }}>
-                    <select 
-                      value={self.state.region}
-                      onChange={self.handleRegionChange}
-                      style={{
-                        width: '100%',
-                        padding: '5px',
-                        border: '2px solid #CCCCCC'
-                      }}
-                    >
-                      {AWS_REGIONS.map(function(r) {
-                        return <option key={r} value={r}>{r}</option>;
-                      })}
-                    </select>
-                  </td>
-                </tr>
               </tbody>
             </table>
+            
+            {/* Region Info Notice - Web 2.0 helpful tip */}
+            <div style={{
+              marginTop: '10px',
+              padding: '8px',
+              backgroundColor: '#E6F3FF',
+              border: '1px solid #0066CC',
+              fontSize: '11px'
+            }}>
+              <strong>💡 No region needed!</strong> Phantom Console automatically detects which region each bucket is in.
+            </div>
             
             {/* Test Result */}
             {self.state.testResult && (
