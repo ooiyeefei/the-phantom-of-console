@@ -12,6 +12,11 @@ var uploadFile = awsWrapper.uploadFile;
 var validateCredentials = awsWrapper.validateCredentials;
 var generatePresignedUrl = awsWrapper.generatePresignedUrl;
 
+// Import AWS SDK for client-side credential handling
+var S3Client = require('@aws-sdk/client-s3').S3Client;
+var ListBucketsCommand = require('@aws-sdk/client-s3').ListBucketsCommand;
+var ListObjectsV2Command = require('@aws-sdk/client-s3').ListObjectsV2Command;
+
 /**
  * Main serverless function handler
  * Vercel calls this for every /api request
@@ -38,10 +43,49 @@ module.exports = async function handler(req, res) {
   
   try {
     // Route: POST /api/buckets-with-creds (frontend sends credentials per-request)
-    if (url.startsWith('/api/buckets-with-creds') && method === 'POST') {
-      // In demo mode, ignore credentials and return ghost buckets
-      var result = await listBuckets();
-      return res.status(200).json(result);
+    if (url.startsWith('/api/buckets-with-creds') && !url.includes('/objects') && method === 'POST') {
+      var body = req.body;
+      
+      if (!body || !body.accessKeyId || !body.secretAccessKey) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingCredentials',
+            message: 'AWS credentials are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      try {
+        var s3Client = new S3Client({
+          region: body.region || 'us-east-1',
+          credentials: {
+            accessKeyId: body.accessKeyId,
+            secretAccessKey: body.secretAccessKey
+          }
+        });
+        
+        var command = new ListBucketsCommand({});
+        var response = await s3Client.send(command);
+        
+        var buckets = (response.Buckets || []).map(function(bucket) {
+          return {
+            name: bucket.Name,
+            creationDate: bucket.CreationDate ? bucket.CreationDate.toISOString().split('T')[0] : 'unknown',
+            region: body.region || 'us-east-1'
+          };
+        });
+        
+        return res.status(200).json({ buckets: buckets });
+      } catch (error) {
+        return res.status(500).json({
+          error: {
+            code: error.name || 'AWSError',
+            message: error.message || 'Failed to list buckets',
+            service: 'S3'
+          }
+        });
+      }
     }
     
     // Route: GET /api/buckets
@@ -73,11 +117,57 @@ module.exports = async function handler(req, res) {
       var parts = url.split('/');
       var bucketIndex = parts.indexOf('buckets-with-creds') + 1;
       var bucketName = parts[bucketIndex];
+      var body = req.body;
       
-      if (bucketName) {
-        // In demo mode, ignore credentials and return ghost objects
-        var result = await listBucketObjects(bucketName);
-        return res.status(200).json(result);
+      if (!bucketName) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingBucketName',
+            message: 'Bucket name is required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      if (!body || !body.accessKeyId || !body.secretAccessKey) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingCredentials',
+            message: 'AWS credentials are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      try {
+        var s3Client = new S3Client({
+          region: body.region || 'us-east-1',
+          credentials: {
+            accessKeyId: body.accessKeyId,
+            secretAccessKey: body.secretAccessKey
+          }
+        });
+        
+        var command = new ListObjectsV2Command({ Bucket: bucketName });
+        var response = await s3Client.send(command);
+        
+        var objects = (response.Contents || []).map(function(obj) {
+          return {
+            key: obj.Key,
+            size: obj.Size,
+            lastModified: obj.LastModified ? obj.LastModified.toISOString().split('T')[0] : 'unknown'
+          };
+        });
+        
+        return res.status(200).json({ objects: objects });
+      } catch (error) {
+        return res.status(500).json({
+          error: {
+            code: error.name || 'AWSError',
+            message: error.message || 'Failed to list objects',
+            service: 'S3'
+          }
+        });
       }
     }
     
