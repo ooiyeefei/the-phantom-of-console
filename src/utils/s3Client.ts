@@ -98,8 +98,8 @@ export async function listBucketObjectsClient(bucketName: string): Promise<{ obj
 }
 
 /**
- * Upload file to S3 bucket using server proxy (avoids CORS issues)
- * Uses efficient chunked base64 encoding for large files
+ * Upload file to S3 bucket using presigned URL (handles large files)
+ * Gets a presigned URL from server, then uploads directly to S3
  */
 export async function uploadFileClient(
   bucketName: string, 
@@ -116,37 +116,46 @@ export async function uploadFileClient(
   }
   
   try {
-    // Convert ArrayBuffer to base64 using chunked approach for large files
-    var bytes = new Uint8Array(fileContent);
-    var binary = '';
-    var chunkSize = 8192; // Process 8KB at a time to avoid call stack issues
-    
-    for (var i = 0; i < bytes.length; i += chunkSize) {
-      var chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    
-    var base64 = btoa(binary);
-    
-    // Send to server proxy which handles S3 upload (avoids CORS)
-    var response = await fetch('/api/upload-with-creds', {
+    // Step 1: Get presigned URL from server
+    var presignResponse = await fetch('/api/get-upload-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         credentials: creds,
         bucketName: bucketName,
-        fileName: fileName,
-        fileContent: base64
+        fileName: fileName
       })
     });
     
-    var result = await response.json();
+    var presignResult = await presignResponse.json();
     
-    if (result.success) {
-      return { success: true, url: result.url };
-    } else {
-      return { success: false, error: result.error?.message || result.error || 'Upload failed' };
+    if (!presignResult.uploadUrl) {
+      return { 
+        success: false, 
+        error: presignResult.error?.message || 'Failed to get upload URL' 
+      };
     }
+    
+    // Step 2: Upload directly to S3 using presigned URL
+    var uploadResponse = await fetch(presignResult.uploadUrl, {
+      method: 'PUT',
+      body: fileContent,
+      headers: {
+        'Content-Type': 'application/octet-stream'
+      }
+    });
+    
+    if (!uploadResponse.ok) {
+      return {
+        success: false,
+        error: 'Upload failed: ' + uploadResponse.statusText
+      };
+    }
+    
+    return { 
+      success: true, 
+      url: 'https://s3.amazonaws.com/' + bucketName + '/' + fileName 
+    };
   } catch (error: any) {
     return {
       success: false,

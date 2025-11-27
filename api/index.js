@@ -21,6 +21,7 @@ var getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
 var GetObjectCommand = require('@aws-sdk/client-s3').GetObjectCommand;
 var GetBucketLocationCommand = require('@aws-sdk/client-s3').GetBucketLocationCommand;
 var CreateBucketCommand = require('@aws-sdk/client-s3').CreateBucketCommand;
+var PutObjectCommand = require('@aws-sdk/client-s3').PutObjectCommand;
 
 // Import STS for credential testing
 var STSClient = require('@aws-sdk/client-sts').STSClient;
@@ -220,6 +221,77 @@ module.exports = async function handler(req, res) {
       if (bucketName) {
         var result = await listBucketObjects(bucketName);
         return res.status(200).json(result);
+      }
+    }
+    
+    // Route: POST /api/get-upload-url (generate presigned URL for upload)
+    if (url.startsWith('/api/get-upload-url') && method === 'POST') {
+      var body = req.body;
+      
+      // Extract credentials from nested object or top level
+      var creds = body.credentials || body;
+      
+      if (!creds || !creds.accessKeyId || !creds.secretAccessKey) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingCredentials',
+            message: 'AWS credentials are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      if (!body.bucketName || !body.fileName) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingParameters',
+            message: 'bucketName and fileName are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      try {
+        // Get bucket region
+        var tempClient = new S3Client({
+          region: creds.region || 'us-east-1',
+          credentials: {
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
+          }
+        });
+        
+        var bucketRegion = await getBucketRegion(tempClient, body.bucketName);
+        
+        // Create client with correct region
+        var s3Client = new S3Client({
+          region: bucketRegion,
+          credentials: {
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
+          }
+        });
+        
+        // Generate presigned URL for PUT operation
+        var command = new PutObjectCommand({
+          Bucket: body.bucketName,
+          Key: body.fileName
+        });
+        
+        var uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+        
+        return res.status(200).json({
+          uploadUrl: uploadUrl,
+          expiresIn: 3600
+        });
+      } catch (error) {
+        return res.status(500).json({
+          error: {
+            code: error.name || 'PresignError',
+            message: error.message || 'Failed to generate upload URL',
+            service: 'S3'
+          }
+        });
       }
     }
     
