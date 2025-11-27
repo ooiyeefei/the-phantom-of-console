@@ -116,7 +116,17 @@ export async function uploadFileClient(
   
   try {
     // Convert ArrayBuffer to base64 for JSON transport
-    var base64 = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(fileContent))));
+    // Use chunked approach to avoid call stack size exceeded error on large files
+    var bytes = new Uint8Array(fileContent);
+    var binary = '';
+    var chunkSize = 8192; // Process 8KB at a time
+    
+    for (var i = 0; i < bytes.length; i += chunkSize) {
+      var chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    var base64 = btoa(binary);
     
     var response = await fetch('/api/upload-with-creds', {
       method: 'POST',
