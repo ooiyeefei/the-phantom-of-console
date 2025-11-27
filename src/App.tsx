@@ -751,11 +751,27 @@ class App extends Component<{}, AppState> {
           checkBucketCors(bucketName).then(function(corsResult) {
             if (corsResult.configured) {
               // CORS is configured - use presigned URL upload for large files
-              self.triggerGhost('upload', 'Large file detected! Using direct S3 upload since CORS is configured. Grab a coffee, this might take a minute... In MY day, we had to split files into 1.44MB chunks and mail them on floppy disks!');
+              var uploadMessages = [
+                '👻 SUMMONING THE SPIRITS OF S3! Your file is being teleported through the haunted cloud... In MY day, we had to physically MAIL floppy disks and hope they didn\'t get possessed by demons!',
+                '🎃 BEWARE! Your file is crossing into the SHADOW REALM of Amazon\'s data centers! This ancient ritual takes time... Back in 2006, we uploaded files via CARRIER PIGEON and we were GRATEFUL!',
+                '💀 The GHOST OF BANDWIDTH PAST is carrying your bytes through the ether! Grab a pumpkin spice latte, this might take a while... In MY day, we had 56k modems and uploading a photo took HOURS!',
+                '🕸️ Your file is being HAUNTED into the cloud! The spirits are working overtime... In MY day, we had to split files into 1.44MB chunks, burn them onto CDs, and sacrifice a goat to the server gods!',
+                '⚰️ UPLOADING FROM BEYOND THE GRAVE! Your file is traveling through cursed fiber optic cables... Back in MY day, we used dial-up and the internet SCREAMED at us like a banshee!'
+              ];
+              var randomUploadMsg = uploadMessages[Math.floor(Math.random() * uploadMessages.length)];
+              self.triggerGhost('upload', randomUploadMsg);
               uploadLargeFileClient(bucketName, file.name, arrayBuffer).then(function(result) {
                 self.setState({ uploading: false, uploadingFileName: '' });
                 if (result.success) {
-                  self.triggerGhost('success', 'Large file uploaded successfully! That would have taken 3 DAYS on a 56k modem! Kids these days don\'t appreciate broadband...');
+                  var successMessages = [
+                    '🎃 SUCCESS! The spirits have delivered your file to the cloud! That would have taken 3 DAYS on a 56k modem and cost you $47 in AOL minutes! Kids these days don\'t know how good they have it!',
+                    '👻 SPOOKTACULAR! Your file has been successfully HAUNTED into S3! In MY day, we had to wait for files to upload while fighting off Y2K bugs and praying the phone line didn\'t disconnect!',
+                    '💀 THE RITUAL IS COMPLETE! Your file now rests in the eternal cloud! Back in 2006, this would have required 3 burnt CDs, 2 USB drives, and a blood sacrifice to the IT department!',
+                    '🕸️ BEWITCHED AND UPLOADED! The ghost of bandwidth past is impressed! In MY day, we uploaded files via FTP and had to manually type in 47-character passwords while standing on one leg!',
+                    '⚰️ RISEN FROM THE DIGITAL GRAVE! Your file is now immortal in S3! That would have taken WEEKS on dial-up and we had to upload uphill BOTH WAYS in the snow!'
+                  ];
+                  var randomSuccessMsg = successMessages[Math.floor(Math.random() * successMessages.length)];
+                  self.triggerGhost('success', randomSuccessMsg);
                   // Refresh bucket list to show the new file
                   self.loadBuckets();
                 } else {
@@ -1170,26 +1186,87 @@ class App extends Component<{}, AppState> {
             </div>
           )}
           
-          {/* Uploading Indicator */}
+          {/* Uploading Indicator - Spooky Halloween Edition! */}
           {self.state.uploading && (
             <div style={{
-              padding: '15px',
-              background: '#E6F3FF',
-              border: '3px outset #0066CC',
+              padding: '20px',
+              background: 'linear-gradient(135deg, #1a0033 0%, #330066 50%, #1a0033 100%)',
+              border: '3px solid #FF6600',
+              borderRadius: '0',
               marginBottom: '15px',
-              textAlign: 'center'
+              textAlign: 'center',
+              boxShadow: '0 0 20px rgba(255, 102, 0, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5)',
+              position: 'relative',
+              overflow: 'hidden'
             }}>
-              <strong>⏳ Uploading "{self.state.uploadingFileName}"...</strong>
-              <br />
-              <small style={{ color: '#666', marginTop: '5px', display: 'block' }}>
-                Please wait while your file is being uploaded to S3. This may take a moment for large files.
-              </small>
+              {/* Floating ghosts animation */}
               <div style={{
-                marginTop: '10px',
-                fontSize: '20px',
-                animation: 'pulse 1.5s ease-in-out infinite'
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                pointerEvents: 'none',
+                fontSize: '30px',
+                opacity: 0.3
               }}>
-                📤 ⬆️ ☁️
+                <span style={{ position: 'absolute', left: '10%', animation: 'float 3s ease-in-out infinite' }}>👻</span>
+                <span style={{ position: 'absolute', left: '30%', animation: 'float 4s ease-in-out infinite 0.5s' }}>🎃</span>
+                <span style={{ position: 'absolute', left: '50%', animation: 'float 3.5s ease-in-out infinite 1s' }}>👻</span>
+                <span style={{ position: 'absolute', left: '70%', animation: 'float 4.5s ease-in-out infinite 1.5s' }}>🎃</span>
+                <span style={{ position: 'absolute', left: '90%', animation: 'float 3s ease-in-out infinite 2s' }}>👻</span>
+              </div>
+              
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ 
+                  fontSize: '40px', 
+                  marginBottom: '10px',
+                  animation: 'pulse 1s ease-in-out infinite'
+                }}>
+                  👻 💀 🎃
+                </div>
+                <strong style={{ 
+                  color: '#FF6600', 
+                  fontSize: '18px',
+                  textShadow: '0 0 10px rgba(255, 102, 0, 0.8)'
+                }}>
+                  🕸️ SUMMONING YOUR FILE TO THE CLOUD... 🕸️
+                </strong>
+                <br />
+                <div style={{ 
+                  color: '#FFFFFF', 
+                  marginTop: '10px',
+                  fontSize: '14px',
+                  fontFamily: 'Courier New, monospace'
+                }}>
+                  "{self.state.uploadingFileName}"
+                </div>
+                <br />
+                <small style={{ 
+                  color: '#CCCCCC', 
+                  marginTop: '10px', 
+                  display: 'block',
+                  fontStyle: 'italic'
+                }}>
+                  The spirits are carrying your bytes through the ether...
+                  <br />
+                  This ancient ritual may take a moment for large files.
+                </small>
+                <div style={{
+                  marginTop: '15px',
+                  fontSize: '24px',
+                  animation: 'spin 2s linear infinite'
+                }}>
+                  🌀 ☁️ 🌀
+                </div>
+                <div style={{
+                  marginTop: '10px',
+                  color: '#FF6600',
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}>
+                  ⚡ UPLOADING IN PROGRESS ⚡
+                </div>
               </div>
             </div>
           )}

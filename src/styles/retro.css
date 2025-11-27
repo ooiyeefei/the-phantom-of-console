@@ -678,3 +678,53 @@ body.ghost-glitch .phantom-container {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   🎃 HALLOWEEN UPLOAD ANIMATIONS - Spooky file transfer magic!
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Floating ghosts and pumpkins */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0) rotate(0deg); 
+    opacity: 0.3;
+  }
+  25% { 
+    transform: translateY(-20px) rotate(5deg); 
+    opacity: 0.5;
+  }
+  50% { 
+    transform: translateY(-40px) rotate(-5deg); 
+    opacity: 0.3;
+  }
+  75% { 
+    transform: translateY(-20px) rotate(3deg); 
+    opacity: 0.5;
+  }
+}
+
+/* Spinning upload vortex */
+@keyframes spin {
+  0% { 
+    transform: rotate(0deg) scale(1); 
+  }
+  50% { 
+    transform: rotate(180deg) scale(1.2); 
+  }
+  100% { 
+    transform: rotate(360deg) scale(1); 
+  }
+}
+
+/* Pulsing effect for upload status */
+@keyframes pulse {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.1); 
+    opacity: 0.8;
+  }
+}
