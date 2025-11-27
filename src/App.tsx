@@ -203,6 +203,22 @@ class App extends Component<{}, AppState> {
 
   
   componentDidMount() {
+    var self = this;
+    
+    // Check for interrupted uploads on page load
+    // We use localStorage to detect interruptions and show a themed ghost message
+    // This is better UX than the generic browser beforeunload warning
+    var interruptedUpload = localStorage.getItem('phantom_upload_in_progress');
+    if (interruptedUpload) {
+      try {
+        var uploadData = JSON.parse(interruptedUpload);
+        self.triggerGhost('error', 'WHOA! Looks like you refreshed during an upload of "' + uploadData.fileName + '"! The upload was INTERRUPTED! In MY day, we knew better than to refresh during file transfers. Now you have to start over!');
+        localStorage.removeItem('phantom_upload_in_progress');
+      } catch (e) {
+        localStorage.removeItem('phantom_upload_in_progress');
+      }
+    }
+    
     // Developer Easter Egg - The Phantom is watching!
     console.log(
       "%c 🎃 THE PHANTOM CONSOLE IS WATCHING YOU 🎃",
@@ -210,7 +226,6 @@ class App extends Component<{}, AppState> {
     );
     
     // Play spooky Halloween background sound on page load - the ghost is awakening!
-    var self = this;
     self.spookyAudio = new Audio('/sounds/halloween-spooky.mp3');
     self.spookyAudio.volume = 0.3; // Spooky but not too loud
     self.spookyAudio.loop = true; // Loop the background music
@@ -748,20 +763,30 @@ class App extends Component<{}, AppState> {
         if (arrayBuffer.byteLength > maxSize) {
           // File is too large - check if CORS is configured
           self.setState({ uploading: true, uploadingFileName: file.name });
+          
+          // Save upload state to localStorage to detect interruptions
+          localStorage.setItem('phantom_upload_in_progress', JSON.stringify({
+            fileName: file.name,
+            bucketName: bucketName,
+            timestamp: Date.now()
+          }));
+          
           checkBucketCors(bucketName).then(function(corsResult) {
             if (corsResult.configured) {
               // CORS is configured - use presigned URL upload for large files
               var uploadMessages = [
-                '👻 SUMMONING THE SPIRITS OF S3! Your file is being teleported through the haunted cloud... In MY day, we had to physically MAIL floppy disks and hope they didn\'t get possessed by demons!',
-                '🎃 BEWARE! Your file is crossing into the SHADOW REALM of Amazon\'s data centers! This ancient ritual takes time... Back in 2006, we uploaded files via CARRIER PIGEON and we were GRATEFUL!',
-                '💀 The GHOST OF BANDWIDTH PAST is carrying your bytes through the ether! Grab a pumpkin spice latte, this might take a while... In MY day, we had 56k modems and uploading a photo took HOURS!',
-                '🕸️ Your file is being HAUNTED into the cloud! The spirits are working overtime... In MY day, we had to split files into 1.44MB chunks, burn them onto CDs, and sacrifice a goat to the server gods!',
-                '⚰️ UPLOADING FROM BEYOND THE GRAVE! Your file is traveling through cursed fiber optic cables... Back in MY day, we used dial-up and the internet SCREAMED at us like a banshee!'
+                '👻 SUMMONING THE SPIRITS OF S3! Your file is being teleported through the haunted cloud... DON\'T REFRESH THE PAGE or the spirits will DROP YOUR FILE! In MY day, we had to physically MAIL floppy disks!',
+                '🎃 BEWARE! Your file is crossing into the SHADOW REALM! Keep this tab open or the upload DIES! Back in 2006, we uploaded files via CARRIER PIGEON and we were GRATEFUL!',
+                '💀 The GHOST OF BANDWIDTH PAST is carrying your bytes! DON\'T CLOSE THIS TAB! In MY day, we had 56k modems and uploading a photo took HOURS! We knew better than to refresh!',
+                '🕸️ Your file is being HAUNTED into the cloud! STAY ON THIS PAGE! In MY day, we had to split files into 1.44MB chunks and pray the connection didn\'t drop!',
+                '⚰️ UPLOADING FROM BEYOND THE GRAVE! Keep this window open or face the WRATH of interrupted uploads! Back in MY day, we used dial-up and ONE phone call would KILL the connection!'
               ];
               var randomUploadMsg = uploadMessages[Math.floor(Math.random() * uploadMessages.length)];
               self.triggerGhost('upload', randomUploadMsg);
               uploadLargeFileClient(bucketName, file.name, arrayBuffer).then(function(result) {
                 self.setState({ uploading: false, uploadingFileName: '' });
+                localStorage.removeItem('phantom_upload_in_progress');
+                
                 if (result.success) {
                   var successMessages = [
                     '🎃 SUCCESS! The spirits have delivered your file to the cloud! That would have taken 3 DAYS on a 56k modem and cost you $47 in AOL minutes! Kids these days don\'t know how good they have it!',
