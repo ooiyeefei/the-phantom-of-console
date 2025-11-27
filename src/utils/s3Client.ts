@@ -561,9 +561,24 @@ export async function uploadLargeFileClient(
     };
   } catch (error: any) {
     console.error('Upload error:', error);
+    
+    // Detect CORS errors
+    var errorMessage = error.message || error.toString();
+    var isCorsError = errorMessage.includes('CORS') || 
+                      errorMessage.includes('Failed to fetch') ||
+                      errorMessage.includes('NetworkError') ||
+                      error.name === 'TypeError';
+    
+    if (isCorsError) {
+      return {
+        success: false,
+        error: 'CORS_ERROR: ' + errorMessage
+      };
+    }
+    
     return {
       success: false,
-      error: 'Failed to upload: ' + (error.message || error)
+      error: 'Failed to upload: ' + errorMessage
     };
   }
 }

@@ -934,11 +934,23 @@ class App extends Component<{}, AppState> {
                   // Refresh bucket list to show the new file
                   self.loadBuckets();
                 } else {
-                  self.handleError({
-                    code: 'UploadError',
-                    message: result.error || 'Upload failed',
-                    service: 'S3'
-                  });
+                  // Check if it's a CORS error
+                  var isCorsError = result.error && result.error.startsWith('CORS_ERROR:');
+                  
+                  if (isCorsError) {
+                    // CORS error - offer to reconfigure
+                    self.handleError({
+                      code: 'CORSError',
+                      message: 'CORS configuration is outdated or incomplete. The bucket needs updated CORS settings for multipart uploads. Click "Reconfigure CORS" below to fix this.',
+                      service: 'S3'
+                    });
+                  } else {
+                    self.handleError({
+                      code: 'UploadError',
+                      message: result.error || 'Upload failed',
+                      service: 'S3'
+                    });
+                  }
                 }
               });
             } else {
@@ -1455,9 +1467,9 @@ class App extends Component<{}, AppState> {
               <br />
               <small>Error Code: {self.state.error.code} | Service: {self.state.error.service}</small>
               <br />
-              {self.state.error.code === 'FileTooLarge' && self.state.lastUploadBucket && (
+              {(self.state.error.code === 'FileTooLarge' || self.state.error.code === 'CORSError') && self.state.lastUploadBucket && (
                 <div style={{ marginTop: '10px', padding: '10px', background: '#FFE4B5', border: '2px solid #FF8C00' }}>
-                  <strong>💡 Solution:</strong> Configure CORS on your bucket to enable direct uploads for large files!
+                  <strong>💡 Solution:</strong> {self.state.error.code === 'CORSError' ? 'Reconfigure CORS with updated settings for multipart uploads!' : 'Configure CORS on your bucket to enable direct uploads for large files!'}
                   <br />
                   <button 
                     className="retro-button retro-button-primary"
