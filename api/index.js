@@ -20,6 +20,7 @@ var PutObjectCommand = require('@aws-sdk/client-s3').PutObjectCommand;
 var getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
 var GetObjectCommand = require('@aws-sdk/client-s3').GetObjectCommand;
 var GetBucketLocationCommand = require('@aws-sdk/client-s3').GetBucketLocationCommand;
+var CreateBucketCommand = require('@aws-sdk/client-s3').CreateBucketCommand;
 
 /**
  * Get the region for a specific bucket
@@ -287,6 +288,64 @@ module.exports = async function handler(req, res) {
           error: {
             code: error.name || 'UploadError',
             message: error.message || 'Failed to upload file',
+            service: 'S3'
+          }
+        });
+      }
+    }
+    
+    // Route: POST /api/create-bucket-with-creds (create bucket with client credentials)
+    if (url.startsWith('/api/create-bucket-with-creds') && method === 'POST') {
+      var body = req.body;
+      
+      // Extract credentials from nested object or top level
+      var creds = body.credentials || body;
+      
+      if (!creds || !creds.accessKeyId || !creds.secretAccessKey) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingCredentials',
+            message: 'AWS credentials are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      if (!body.bucketName) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingParameters',
+            message: 'bucketName is required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      try {
+        var s3Client = new S3Client({
+          region: creds.region || 'us-east-1',
+          credentials: {
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
+          }
+        });
+        
+        var command = new CreateBucketCommand({
+          Bucket: body.bucketName
+        });
+        
+        await s3Client.send(command);
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Bucket created successfully',
+          bucketName: body.bucketName
+        });
+      } catch (error) {
+        return res.status(500).json({
+          error: {
+            code: error.name || 'CreateBucketError',
+            message: error.message || 'Failed to create bucket',
             service: 'S3'
           }
         });

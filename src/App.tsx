@@ -179,8 +179,10 @@ class App extends Component<{}, AppState> {
     });
     self.setState({ audioEnabled: true });
     
-    // Load buckets on mount
-    this.loadBuckets();
+    // Only load buckets if credentials are configured
+    if (this.state.useClientSideAWS) {
+      this.loadBuckets();
+    }
   }
   
   /**
