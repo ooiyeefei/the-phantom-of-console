@@ -15,7 +15,7 @@ import GhostAgent from './components/GhostAgent';
 import SpookyEffects from './components/SpookyEffects';
 import CredentialsModal from './components/CredentialsModal';
 import { hasCredentials } from './utils/awsCredentials';
-import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient } from './utils/s3Client';
+import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient, configureBucketCors } from './utils/s3Client';
 
 // Web 2.0 compliant interface definitions
 interface S3Bucket {
@@ -55,6 +55,8 @@ interface AppState {
   showCreateBucketDialog: boolean;
   newBucketName: string;
   creatingBucket: boolean;
+  lastUploadBucket: string;
+  configuringCors: boolean;
 }
 
 /**
@@ -93,7 +95,9 @@ class App extends Component<{}, AppState> {
       useClientSideAWS: hasCredentials(),
       showCreateBucketDialog: false,
       newBucketName: '',
-      creatingBucket: false
+      creatingBucket: false,
+      lastUploadBucket: '',
+      configuringCors: false
     };
     
     // Bind methods - no arrow functions in 2006!
@@ -124,6 +128,7 @@ class App extends Component<{}, AppState> {
     this.handleCreateBucket = this.handleCreateBucket.bind(this);
     this.handleNewBucketNameChange = this.handleNewBucketNameChange.bind(this);
     this.handleDeleteBucket = this.handleDeleteBucket.bind(this);
+    this.handleConfigureCors = this.handleConfigureCors.bind(this);
   }
   
   /**
@@ -156,6 +161,40 @@ class App extends Component<{}, AppState> {
     
     // Trigger the ghost with the security message
     self.triggerGhost('delete', randomMessage);
+  }
+  
+  /**
+   * Handle configure CORS button click - one-click CORS setup!
+   * Configures bucket to allow large file uploads
+   */
+  handleConfigureCors() {
+    var self = this;
+    var bucketName = self.state.lastUploadBucket;
+    
+    if (!bucketName) {
+      return;
+    }
+    
+    self.setState({ configuringCors: true });
+    self.playCrunch();
+    self.triggerGhost('cors', 'Configuring CORS on "' + bucketName + '"... In MY day, we had to manually edit XML files and pray to the server gods! You kids have it easy with these fancy APIs!');
+    
+    configureBucketCors(bucketName).then(function(result) {
+      if (result.success) {
+        self.setState({ 
+          configuringCors: false,
+          error: null
+        });
+        self.triggerGhost('success', 'CORS configured! Now you can upload files larger than 3MB. But remember: with great bandwidth comes great responsibility! Back in my day, we had 56k modems and we LIKED it!');
+      } else {
+        self.setState({ configuringCors: false });
+        self.handleError({
+          code: 'CORSConfigError',
+          message: result.error || 'Failed to configure CORS',
+          service: 'S3'
+        });
+      }
+    });
   }
 
   
@@ -691,6 +730,9 @@ class App extends Component<{}, AppState> {
   handleUpload(bucketName: string, file: File) {
     var self = this;
     
+    // Store bucket name for CORS configuration
+    self.setState({ lastUploadBucket: bucketName });
+    
     // Use client-side AWS SDK if credentials are configured
     if (self.state.useClientSideAWS) {
       var reader = new FileReader();
@@ -701,7 +743,7 @@ class App extends Component<{}, AppState> {
             self.triggerGhost('success', 'Fine, your file uploaded. But don\'t come crying to me when "the cloud" loses all your data! I\'ve seen things... terrible things in us-east-1.');
             self.loadBuckets();
           } else if (result.tooLarge) {
-            // File is too large - show helpful message
+            // File is too large - show helpful message with CORS config option
             self.triggerGhost('error', 'WHOA THERE! That file is TOO BIG for our serverless function! Files must be under 3MB. In MY day, we had 1.44MB floppy disks and we were GRATEFUL!');
             self.handleError({
               code: 'FileTooLarge',
@@ -1069,7 +1111,27 @@ class App extends Component<{}, AppState> {
               <br />
               <small>Error Code: {self.state.error.code} | Service: {self.state.error.service}</small>
               <br />
-              <small style={{ color: '#666' }}>Click "Dismiss" to clear this error, or "Connect AWS" to add your credentials.</small>
+              {self.state.error.code === 'FileTooLarge' && self.state.lastUploadBucket && (
+                <div style={{ marginTop: '10px', padding: '10px', background: '#FFE4B5', border: '2px solid #FF8C00' }}>
+                  <strong>💡 Solution:</strong> Configure CORS on your bucket to enable direct uploads for large files!
+                  <br />
+                  <button 
+                    className="retro-button retro-button-primary"
+                    onClick={self.handleConfigureCors}
+                    disabled={self.state.configuringCors}
+                    style={{ marginTop: '8px' }}
+                  >
+                    {self.state.configuringCors ? '⏳ Configuring...' : '🔧 Configure CORS on "' + self.state.lastUploadBucket + '"'}
+                  </button>
+                  <br />
+                  <small style={{ color: '#666', marginTop: '5px', display: 'block' }}>
+                    This will allow your browser to upload files directly to S3, bypassing the 3MB limit.
+                  </small>
+                </div>
+              )}
+              {self.state.error.code !== 'FileTooLarge' && (
+                <small style={{ color: '#666' }}>Click "Dismiss" to clear this error, or "Connect AWS" to add your credentials.</small>
+              )}
             </div>
           )}
           
