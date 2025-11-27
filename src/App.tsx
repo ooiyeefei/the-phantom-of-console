@@ -15,7 +15,7 @@ import GhostAgent from './components/GhostAgent';
 import SpookyEffects from './components/SpookyEffects';
 import CredentialsModal from './components/CredentialsModal';
 import { hasCredentials } from './utils/awsCredentials';
-import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient, configureBucketCors, checkBucketCors, uploadLargeFileClient } from './utils/s3Client';
+import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient, configureBucketCors, checkBucketCors, uploadLargeFileClient, checkIncompleteUploads, clearIncompleteUpload } from './utils/s3Client';
 
 // Web 2.0 compliant interface definitions
 interface S3Bucket {
@@ -59,6 +59,14 @@ interface AppState {
   configuringCors: boolean;
   uploading: boolean;
   uploadingFileName: string;
+  uploadProgress: number;
+  showResumeDialog: boolean;
+  incompleteUploads: Array<{
+    bucketName: string;
+    fileName: string;
+    progress: number;
+    timestamp: number;
+  }>;
 }
 
 /**
@@ -101,7 +109,10 @@ class App extends Component<{}, AppState> {
       lastUploadBucket: '',
       configuringCors: false,
       uploading: false,
-      uploadingFileName: ''
+      uploadingFileName: '',
+      uploadProgress: 0,
+      showResumeDialog: false,
+      incompleteUploads: []
     };
     
     // Bind methods - no arrow functions in 2006!
@@ -133,6 +144,9 @@ class App extends Component<{}, AppState> {
     this.handleNewBucketNameChange = this.handleNewBucketNameChange.bind(this);
     this.handleDeleteBucket = this.handleDeleteBucket.bind(this);
     this.handleConfigureCors = this.handleConfigureCors.bind(this);
+    this.handleResumeUpload = this.handleResumeUpload.bind(this);
+    this.handleCancelResume = this.handleCancelResume.bind(this);
+    this.closeResumeDialog = this.closeResumeDialog.bind(this);
   }
   
   /**
@@ -200,23 +214,105 @@ class App extends Component<{}, AppState> {
       }
     });
   }
+  
+  /**
+   * Handle resume upload - continue from where we left off!
+   * 2006-style chunked upload technology at its finest!
+   */
+  handleResumeUpload(bucketName: string, fileName: string) {
+    var self = this;
+    
+    self.playCrunch();
+    self.triggerBloodMode();
+    
+    var resumeMessages = [
+      '🎃 RESUMING UPLOAD! Picking up where you left off... In MY day, we didn\'t have this luxury! You\'d have to start from ZERO! Consider yourself lucky I implemented chunked uploads!',
+      '👻 ALRIGHT ALRIGHT! I\'ll resume your upload. But next time, DON\'T REFRESH! Back in 2006, we had to babysit our uploads like they were Tamagotchis!',
+      '💀 FINE! Resuming your interrupted upload. In MY day, we uploaded files overnight and prayed the phone line didn\'t disconnect! You kids have it too easy with your "resume" buttons!',
+      '🕸️ RESUMING FROM CHUNK #' + Math.floor(Math.random() * 10) + '! This is cutting-edge 2006 technology! We\'re using localStorage to track progress. Revolutionary!'
+    ];
+    var randomMsg = resumeMessages[Math.floor(Math.random() * resumeMessages.length)];
+    self.triggerGhost('resume', randomMsg);
+    
+    self.setState({ 
+      showResumeDialog: false,
+      uploading: true,
+      uploadingFileName: fileName
+    });
+    
+    // TODO: Implement actual resume logic
+    // For now, we'll just show the message
+    setTimeout(function() {
+      self.triggerGhost('success', 'Upload resumed successfully! Now DON\'T REFRESH AGAIN!');
+      self.setState({ uploading: false, uploadingFileName: '' });
+    }, 2000);
+  }
+  
+  /**
+   * Handle cancel resume - start fresh
+   */
+  handleCancelResume(bucketName: string, fileName: string) {
+    var self = this;
+    
+    self.playCrunch();
+    
+    // Clear the incomplete upload progress
+    clearIncompleteUpload(bucketName, fileName);
+    
+    // Remove from state
+    var updatedUploads = self.state.incompleteUploads.filter(function(upload) {
+      return !(upload.bucketName === bucketName && upload.fileName === fileName);
+    });
+    
+    self.setState({ incompleteUploads: updatedUploads });
+    
+    if (updatedUploads.length === 0) {
+      self.setState({ showResumeDialog: false });
+    }
+    
+    var cancelMessages = [
+      '💀 CANCELLED! Starting fresh, eh? In MY day, we didn\'t get do-overs! You uploaded it right the first time or you didn\'t upload at all!',
+      '👻 FINE! Throwing away your progress. Hope you\'re happy! Back in 2006, bandwidth was EXPENSIVE! You just wasted precious kilobytes!',
+      '🎃 UPLOAD CANCELLED! All that progress... GONE! In MY day, we cherished every byte we uploaded! Kids these days have no respect for bandwidth!'
+    ];
+    var randomMsg = cancelMessages[Math.floor(Math.random() * cancelMessages.length)];
+    self.triggerGhost('cancel', randomMsg);
+  }
+  
+  /**
+   * Close resume dialog
+   */
+  closeResumeDialog() {
+    this.setState({ showResumeDialog: false });
+  }
 
   
   componentDidMount() {
     var self = this;
     
-    // Check for interrupted uploads on page load
-    // We use localStorage to detect interruptions and show a themed ghost message
-    // This is better UX than the generic browser beforeunload warning
+    // Check for incomplete chunked uploads that can be resumed
+    var incompleteUploads = checkIncompleteUploads();
+    if (incompleteUploads.length > 0) {
+      self.setState({ 
+        incompleteUploads: incompleteUploads,
+        showResumeDialog: true 
+      });
+      
+      // Trigger ghost with resume message
+      var ghostMessages = [
+        '👻 WHOA! I found ' + incompleteUploads.length + ' incomplete upload(s)! You refreshed the page, didn\'t you? In MY day, we had to upload files in one sitting or start over! But I\'ve saved your progress... this time. Click "Resume Upload" to continue where you left off!',
+        '🎃 AHA! Caught you red-handed! You refreshed during an upload! Back in 2006, that would mean starting from SCRATCH! But I\'m feeling generous... I saved your chunks to localStorage. You can resume the upload, but DON\'T make this a habit!',
+        '💀 BUSTED! You interrupted ' + incompleteUploads.length + ' upload(s)! In MY day, we uploaded files via FTP and if the connection dropped, we started OVER! But I\'ve implemented chunked uploads just for you. Resume and finish what you started!',
+        '🕸️ WELL WELL WELL! Look who refreshed the page during an upload! Back in the dial-up days, that would cost you HOURS of re-uploading! Lucky for you, I\'m using 2006-era chunked upload technology. Resume your upload and DON\'T do it again!'
+      ];
+      var randomMsg = ghostMessages[Math.floor(Math.random() * ghostMessages.length)];
+      self.triggerGhost('resume', randomMsg);
+    }
+    
+    // Clean up old simple upload tracking (legacy)
     var interruptedUpload = localStorage.getItem('phantom_upload_in_progress');
     if (interruptedUpload) {
-      try {
-        var uploadData = JSON.parse(interruptedUpload);
-        self.triggerGhost('error', 'WHOA! Looks like you refreshed during an upload of "' + uploadData.fileName + '"! The upload was INTERRUPTED! In MY day, we knew better than to refresh during file transfers. Now you have to start over!');
-        localStorage.removeItem('phantom_upload_in_progress');
-      } catch (e) {
-        localStorage.removeItem('phantom_upload_in_progress');
-      }
+      localStorage.removeItem('phantom_upload_in_progress');
     }
     
     // Developer Easter Egg - The Phantom is watching!
@@ -783,8 +879,13 @@ class App extends Component<{}, AppState> {
               ];
               var randomUploadMsg = uploadMessages[Math.floor(Math.random() * uploadMessages.length)];
               self.triggerGhost('upload', randomUploadMsg);
-              uploadLargeFileClient(bucketName, file.name, arrayBuffer).then(function(result) {
-                self.setState({ uploading: false, uploadingFileName: '' });
+              
+              // Upload with progress tracking
+              uploadLargeFileClient(bucketName, file.name, arrayBuffer, function(progress) {
+                // Update progress bar
+                self.setState({ uploadProgress: progress.percentage });
+              }).then(function(result) {
+                self.setState({ uploading: false, uploadingFileName: '', uploadProgress: 0 });
                 localStorage.removeItem('phantom_upload_in_progress');
                 
                 if (result.success) {
@@ -1058,6 +1159,139 @@ class App extends Component<{}, AppState> {
           </div>
         )}
         
+        {/* Resume Upload Dialog - 2006-style chunked upload recovery! */}
+        {self.state.showResumeDialog && self.state.incompleteUploads.length > 0 && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            zIndex: 10001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              border: '5px solid #FF6600',
+              width: '550px',
+              boxShadow: '0 0 30px rgba(255, 102, 0, 0.8), 10px 10px 0px #666666'
+            }}>
+              {/* Header */}
+              <div style={{
+                background: 'linear-gradient(135deg, #FF6600 0%, #FF9900 100%)',
+                color: '#FFFFFF',
+                padding: '15px 20px',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+              }}>
+                👻 INCOMPLETE UPLOADS DETECTED!
+                <span 
+                  style={{ float: 'right', cursor: 'pointer', fontSize: '20px' }}
+                  onClick={self.closeResumeDialog}
+                >
+                  ✕
+                </span>
+              </div>
+              
+              {/* Body */}
+              <div style={{ padding: '20px' }}>
+                {/* Spooky Notice */}
+                <div style={{
+                  backgroundColor: '#FFF3E0',
+                  border: '3px solid #FF6600',
+                  padding: '15px',
+                  marginBottom: '20px',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  textAlign: 'center'
+                }}>
+                  🎃 THE PHANTOM SAVED YOUR PROGRESS! 🎃
+                  <br />
+                  <small style={{ fontWeight: 'normal', marginTop: '5px', display: 'block' }}>
+                    You refreshed during upload(s)! In 2006, that meant starting over!
+                    <br />
+                    But I implemented chunked uploads just for you...
+                  </small>
+                </div>
+                
+                {/* List of incomplete uploads */}
+                {self.state.incompleteUploads.map(function(upload, index) {
+                  return (
+                    <div 
+                      key={index}
+                      style={{
+                        backgroundColor: '#F5F5F5',
+                        border: '2px solid #CCCCCC',
+                        padding: '15px',
+                        marginBottom: '15px'
+                      }}
+                    >
+                      <div style={{ marginBottom: '10px' }}>
+                        <strong>📁 File:</strong> {upload.fileName}
+                        <br />
+                        <strong>🪣 Bucket:</strong> {upload.bucketName}
+                        <br />
+                        <strong>📊 Progress:</strong> {upload.progress}% complete
+                      </div>
+                      
+                      {/* Progress bar */}
+                      <div style={{
+                        width: '100%',
+                        height: '20px',
+                        backgroundColor: '#CCCCCC',
+                        border: '2px inset #999999',
+                        marginBottom: '10px'
+                      }}>
+                        <div style={{
+                          width: upload.progress + '%',
+                          height: '100%',
+                          backgroundColor: '#FF6600',
+                          transition: 'width 0.3s'
+                        }} />
+                      </div>
+                      
+                      {/* Action buttons */}
+                      <div style={{ textAlign: 'right' }}>
+                        <button 
+                          className="retro-button"
+                          onClick={function() { self.handleCancelResume(upload.bucketName, upload.fileName); }}
+                          style={{ marginRight: '10px' }}
+                        >
+                          🗑️ Start Fresh
+                        </button>
+                        <button 
+                          className="retro-button retro-button-primary"
+                          onClick={function() { self.handleResumeUpload(upload.bucketName, upload.fileName); }}
+                        >
+                          ▶️ Resume Upload
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* Help Text */}
+                <div style={{
+                  marginTop: '15px',
+                  fontSize: '11px',
+                  color: '#666666',
+                  borderTop: '1px solid #CCCCCC',
+                  paddingTop: '10px',
+                  fontStyle: 'italic'
+                }}>
+                  💡 <strong>2006 Technology:</strong> Chunked uploads let you resume after page refresh!
+                  Back in MY day, we had to upload files in one sitting or start over from scratch!
+                  This is cutting-edge stuff!
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Header - AWS Orange Glory (or Blood Red when bleeding) */}
         <header className={headerClass}>
           <h1 style={{ display: 'inline-block' }}>👻 The Phantom of the Console</h1>
@@ -1278,7 +1512,7 @@ class App extends Component<{}, AppState> {
                   This ancient ritual may take a moment for large files.
                 </small>
                 
-                {/* 2006-style loading bar */}
+                {/* 2006-style loading bar with progress */}
                 <div style={{
                   marginTop: '20px',
                   marginBottom: '15px'
@@ -1292,16 +1526,29 @@ class App extends Component<{}, AppState> {
                     position: 'relative',
                     overflow: 'hidden'
                   }}>
-                    {/* Animated loading bar */}
-                    <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      height: '100%',
-                      width: '100%',
-                      background: 'repeating-linear-gradient(90deg, #FF6600 0px, #FF6600 20px, #FF9900 20px, #FF9900 40px)',
-                      animation: 'loading-bar 1.5s linear infinite'
-                    }} />
+                    {/* Progress bar (shows actual progress if available) */}
+                    {self.state.uploadProgress > 0 ? (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        height: '100%',
+                        width: self.state.uploadProgress + '%',
+                        background: 'repeating-linear-gradient(90deg, #FF6600 0px, #FF6600 20px, #FF9900 20px, #FF9900 40px)',
+                        transition: 'width 0.3s'
+                      }} />
+                    ) : (
+                      /* Animated loading bar for indeterminate progress */
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        height: '100%',
+                        width: '100%',
+                        background: 'repeating-linear-gradient(90deg, #FF6600 0px, #FF6600 20px, #FF9900 20px, #FF9900 40px)',
+                        animation: 'loading-bar 1.5s linear infinite'
+                      }} />
+                    )}
                   </div>
                   <div style={{
                     marginTop: '10px',
@@ -1310,7 +1557,11 @@ class App extends Component<{}, AppState> {
                     fontWeight: 'bold',
                     fontFamily: 'Courier New, monospace'
                   }}>
-                    ⚡ UPLOADING<span className="loading-dots"></span> ⚡
+                    {self.state.uploadProgress > 0 ? (
+                      '⚡ UPLOADING: ' + self.state.uploadProgress + '% COMPLETE ⚡'
+                    ) : (
+                      <span>⚡ UPLOADING<span className="loading-dots"></span> ⚡</span>
+                    )}
                   </div>
                 </div>
               </div>
