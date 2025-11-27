@@ -37,6 +37,13 @@ module.exports = async function handler(req, res) {
   var method = req.method;
   
   try {
+    // Route: POST /api/buckets-with-creds (frontend sends credentials per-request)
+    if (url === '/api/buckets-with-creds' && method === 'POST') {
+      // In demo mode, ignore credentials and return ghost buckets
+      var result = await listBuckets();
+      return res.status(200).json(result);
+    }
+    
     // Route: GET /api/buckets
     if (url === '/api/buckets' || url === '/api' || url === '/') {
       if (method === 'GET') {
@@ -58,6 +65,19 @@ module.exports = async function handler(req, res) {
             ? '👻 Running in Séance Mode - Ghost buckets active!' 
             : '🔥 Live mode - Connected to real AWS!'
         });
+      }
+    }
+    
+    // Route: POST /api/buckets-with-creds/:bucketName/objects (frontend sends credentials per-request)
+    if (url.includes('/buckets-with-creds/') && url.includes('/objects') && method === 'POST') {
+      var parts = url.split('/');
+      var bucketIndex = parts.indexOf('buckets-with-creds') + 1;
+      var bucketName = parts[bucketIndex];
+      
+      if (bucketName) {
+        // In demo mode, ignore credentials and return ghost objects
+        var result = await listBucketObjects(bucketName);
+        return res.status(200).json(result);
       }
     }
     
