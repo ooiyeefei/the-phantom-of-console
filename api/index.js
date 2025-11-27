@@ -22,6 +22,10 @@ var GetObjectCommand = require('@aws-sdk/client-s3').GetObjectCommand;
 var GetBucketLocationCommand = require('@aws-sdk/client-s3').GetBucketLocationCommand;
 var CreateBucketCommand = require('@aws-sdk/client-s3').CreateBucketCommand;
 
+// Import STS for credential testing
+var STSClient = require('@aws-sdk/client-sts').STSClient;
+var GetCallerIdentityCommand = require('@aws-sdk/client-sts').GetCallerIdentityCommand;
+
 /**
  * Get the region for a specific bucket
  * AWS returns null for us-east-1 buckets (classic AWS!)
@@ -290,6 +294,43 @@ module.exports = async function handler(req, res) {
             message: error.message || 'Failed to upload file',
             service: 'S3'
           }
+        });
+      }
+    }
+    
+    // Route: POST /api/test-credentials (test AWS credentials)
+    if (url.startsWith('/api/test-credentials') && method === 'POST') {
+      var body = req.body;
+      
+      if (!body || !body.accessKeyId || !body.secretAccessKey) {
+        return res.status(400).json({
+          valid: false,
+          error: 'AWS credentials are required'
+        });
+      }
+      
+      try {
+        var stsClient = new STSClient({
+          region: body.region || 'us-east-1',
+          credentials: {
+            accessKeyId: body.accessKeyId,
+            secretAccessKey: body.secretAccessKey
+          }
+        });
+        
+        var command = new GetCallerIdentityCommand({});
+        var response = await stsClient.send(command);
+        
+        return res.status(200).json({
+          valid: true,
+          account: response.Account,
+          arn: response.Arn,
+          userId: response.UserId
+        });
+      } catch (error) {
+        return res.status(200).json({
+          valid: false,
+          error: error.message || 'Invalid credentials'
         });
       }
     }
