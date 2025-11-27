@@ -7,7 +7,16 @@
  * This is the future of cloud computing! (circa 2006)
  */
 
-import { S3Client, ListBucketsCommand, PutObjectCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
+import { 
+  S3Client, 
+  ListBucketsCommand, 
+  PutObjectCommand, 
+  PutBucketCorsCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand
+} from '@aws-sdk/client-s3';
 import { loadCredentials, AWSCredentials } from './awsCredentials';
 
 // S3 Bucket interface
@@ -368,14 +377,16 @@ export async function checkBucketCors(
 }
 
 /**
- * Upload large file using chunked multipart upload (2006-style resumable uploads!)
- * This bypasses the 3MB API limit and allows resuming after page refresh
+ * Upload large file using S3 NATIVE multipart upload API
+ * TRUE resumable uploads that survive page refresh!
  * 
- * Benefits:
- * - Resumable after page refresh (user can click "Resume Upload")
- * - Progress tracking with localStorage
- * - 5MB chunks (optimal for S3 multipart)
- * - 2006-appropriate technology (chunked uploads existed back then!)
+ * How it works:
+ * 1. Initiate multipart upload → Get UploadId
+ * 2. Upload parts → Store ETag for each part
+ * 3. On refresh → User re-selects file, we skip uploaded parts
+ * 4. Complete upload → S3 combines all parts
+ * 
+ * This is REAL 2006 technology - multipart uploads existed back then!
  */
 export async function uploadLargeFileClient(
   bucketName: string,
@@ -396,9 +407,9 @@ export async function uploadLargeFileClient(
     // Create S3 client with user credentials
     var s3Client = createS3Client(creds);
     
-    // For files under 10MB, use simple upload (no chunking needed)
-    var simpleUploadThreshold = 10 * 1024 * 1024; // 10MB
-    if (fileContent.byteLength < simpleUploadThreshold) {
+    // For files under 10MB, use simple upload (no multipart needed)
+    var multipartThreshold = 10 * 1024 * 1024; // 10MB
+    if (fileContent.byteLength < multipartThreshold) {
       var uint8Array = new Uint8Array(fileContent);
       var command = new PutObjectCommand({
         Bucket: bucketName,
@@ -415,84 +426,141 @@ export async function uploadLargeFileClient(
       };
     }
     
-    // For larger files, use chunked upload with resume capability
-    var chunkSize = 5 * 1024 * 1024; // 5MB chunks (S3 minimum for multipart)
-    var totalChunks = Math.ceil(fileContent.byteLength / chunkSize);
+    // Use S3 multipart upload for large files
+    var partSize = 5 * 1024 * 1024; // 5MB parts (S3 minimum)
+    var totalParts = Math.ceil(fileContent.byteLength / partSize);
     
-    // Check for existing upload progress
-    var uploadKey = 'phantom_upload_progress_' + bucketName + '_' + fileName;
-    var existingProgress = localStorage.getItem(uploadKey);
-    var startChunk = 0;
+    // Check for existing multipart upload in progress
+    var uploadKey = 'phantom_multipart_' + bucketName + '_' + fileName;
+    var existingUpload = localStorage.getItem(uploadKey);
+    var uploadId;
+    var uploadedParts = [];
     
-    if (existingProgress) {
+    if (existingUpload) {
       try {
-        var progress = JSON.parse(existingProgress);
-        startChunk = progress.lastCompletedChunk + 1;
+        var uploadData = JSON.parse(existingUpload);
+        uploadId = uploadData.uploadId;
+        uploadedParts = uploadData.parts || [];
+        console.log('Resuming upload with UploadId:', uploadId, 'Parts:', uploadedParts.length);
       } catch (e) {
-        // Invalid progress data, start from beginning
-        startChunk = 0;
+        // Invalid data, start fresh
+        existingUpload = null;
       }
     }
     
-    // Upload chunks one by one
-    for (var i = startChunk; i < totalChunks; i++) {
-      var start = i * chunkSize;
-      var end = Math.min(start + chunkSize, fileContent.byteLength);
-      var chunk = fileContent.slice(start, end);
-      var uint8Chunk = new Uint8Array(chunk);
-      
-      // For chunked uploads, we append to the file
-      // Note: This is a simplified approach. Production would use S3 multipart upload API
-      var chunkFileName = fileName + '.part' + i;
-      var chunkCommand = new PutObjectCommand({
+    // If no existing upload, initiate new multipart upload
+    if (!existingUpload) {
+      var createCommand = new CreateMultipartUploadCommand({
         Bucket: bucketName,
-        Key: chunkFileName,
-        Body: uint8Chunk,
+        Key: fileName,
         ContentType: 'application/octet-stream'
       });
       
-      await s3Client.send(chunkCommand);
+      var createResponse = await s3Client.send(createCommand);
+      uploadId = createResponse.UploadId;
       
-      // Save progress to localStorage
+      // Save upload ID to localStorage
       localStorage.setItem(uploadKey, JSON.stringify({
-        lastCompletedChunk: i,
-        totalChunks: totalChunks,
+        uploadId: uploadId,
+        parts: [],
+        fileName: fileName,
+        fileSize: fileContent.byteLength,
         timestamp: Date.now()
       }));
+      
+      console.log('Initiated multipart upload:', uploadId);
+    }
+    
+    // Upload parts (skip already uploaded parts)
+    var parts = [];
+    for (var i = 0; i < totalParts; i++) {
+      var partNumber = i + 1;
+      
+      // Check if this part was already uploaded
+      var existingPart = uploadedParts.find(function(p) { return p.PartNumber === partNumber; });
+      if (existingPart) {
+        parts.push(existingPart);
+        console.log('Skipping part', partNumber, '- already uploaded');
+        
+        // Report progress for skipped part
+        if (onProgress) {
+          onProgress({
+            uploadedChunks: partNumber,
+            totalChunks: totalParts,
+            percentage: Math.round((partNumber / totalParts) * 100)
+          });
+        }
+        continue;
+      }
+      
+      // Upload this part
+      var start = i * partSize;
+      var end = Math.min(start + partSize, fileContent.byteLength);
+      var partData = fileContent.slice(start, end);
+      var uint8Part = new Uint8Array(partData);
+      
+      var uploadPartCommand = new UploadPartCommand({
+        Bucket: bucketName,
+        Key: fileName,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+        Body: uint8Part
+      });
+      
+      var uploadPartResponse = await s3Client.send(uploadPartCommand);
+      
+      // Store part info
+      var partInfo = {
+        PartNumber: partNumber,
+        ETag: uploadPartResponse.ETag
+      };
+      parts.push(partInfo);
+      uploadedParts.push(partInfo);
+      
+      // Update localStorage with progress
+      localStorage.setItem(uploadKey, JSON.stringify({
+        uploadId: uploadId,
+        parts: uploadedParts,
+        fileName: fileName,
+        fileSize: fileContent.byteLength,
+        timestamp: Date.now()
+      }));
+      
+      console.log('Uploaded part', partNumber, 'ETag:', uploadPartResponse.ETag);
       
       // Report progress
       if (onProgress) {
         onProgress({
-          uploadedChunks: i + 1,
-          totalChunks: totalChunks,
-          percentage: Math.round(((i + 1) / totalChunks) * 100)
+          uploadedChunks: partNumber,
+          totalChunks: totalParts,
+          percentage: Math.round((partNumber / totalParts) * 100)
         });
       }
     }
     
-    // All chunks uploaded - now combine them (simplified approach)
-    // In production, you'd use CompleteMultipartUpload
-    // For now, we'll upload the full file as final step
-    var uint8Array = new Uint8Array(fileContent);
-    var finalCommand = new PutObjectCommand({
+    // Complete the multipart upload
+    var completeCommand = new CompleteMultipartUploadCommand({
       Bucket: bucketName,
       Key: fileName,
-      Body: uint8Array,
-      ContentType: 'application/octet-stream'
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts
+      }
     });
     
-    await s3Client.send(finalCommand);
+    await s3Client.send(completeCommand);
     
-    // Clean up progress and chunk files
+    // Clean up localStorage
     localStorage.removeItem(uploadKey);
     
-    // TODO: Delete chunk files (would need DeleteObjectCommand)
+    console.log('Multipart upload completed successfully!');
     
     return { 
       success: true, 
       url: 'https://s3.amazonaws.com/' + bucketName + '/' + fileName 
     };
   } catch (error: any) {
+    console.error('Upload error:', error);
     return {
       success: false,
       error: 'Failed to upload: ' + (error.message || error)
@@ -501,7 +569,7 @@ export async function uploadLargeFileClient(
 }
 
 /**
- * Check for incomplete uploads that can be resumed
+ * Check for incomplete multipart uploads that can be resumed
  * Returns list of uploads that were interrupted
  */
 export function checkIncompleteUploads(): Array<{
@@ -509,26 +577,35 @@ export function checkIncompleteUploads(): Array<{
   fileName: string;
   progress: number;
   timestamp: number;
+  uploadId: string;
+  fileSize: number;
 }> {
   var incompleteUploads = [];
   
-  // Scan localStorage for upload progress entries
+  // Scan localStorage for multipart upload entries
   for (var i = 0; i < localStorage.length; i++) {
     var key = localStorage.key(i);
-    if (key && key.startsWith('phantom_upload_progress_')) {
+    if (key && key.startsWith('phantom_multipart_')) {
       try {
-        var progressData = JSON.parse(localStorage.getItem(key) || '{}');
+        var uploadData = JSON.parse(localStorage.getItem(key) || '{}');
         
         // Extract bucket and file name from key
-        var parts = key.replace('phantom_upload_progress_', '').split('_');
-        var bucketName = parts[0];
-        var fileName = parts.slice(1).join('_');
+        var keyParts = key.replace('phantom_multipart_', '').split('_');
+        var bucketName = keyParts[0];
+        var fileName = keyParts.slice(1).join('_');
+        
+        // Calculate progress based on uploaded parts
+        var totalParts = Math.ceil(uploadData.fileSize / (5 * 1024 * 1024));
+        var uploadedParts = (uploadData.parts || []).length;
+        var progress = Math.round((uploadedParts / totalParts) * 100);
         
         incompleteUploads.push({
           bucketName: bucketName,
           fileName: fileName,
-          progress: Math.round((progressData.lastCompletedChunk / progressData.totalChunks) * 100),
-          timestamp: progressData.timestamp
+          progress: progress,
+          timestamp: uploadData.timestamp,
+          uploadId: uploadData.uploadId,
+          fileSize: uploadData.fileSize
         });
       } catch (e) {
         // Invalid data, skip
@@ -540,9 +617,47 @@ export function checkIncompleteUploads(): Array<{
 }
 
 /**
- * Clear incomplete upload progress
+ * Clear incomplete multipart upload progress
  */
 export function clearIncompleteUpload(bucketName: string, fileName: string): void {
-  var uploadKey = 'phantom_upload_progress_' + bucketName + '_' + fileName;
+  var uploadKey = 'phantom_multipart_' + bucketName + '_' + fileName;
   localStorage.removeItem(uploadKey);
+}
+
+/**
+ * Abort incomplete multipart upload on S3
+ * This cleans up the multipart upload on S3 side
+ */
+export async function abortIncompleteUpload(
+  bucketName: string, 
+  fileName: string, 
+  uploadId: string
+): Promise<{ success: boolean, error?: string }> {
+  var creds = loadCredentials();
+  
+  if (!creds) {
+    return { success: false, error: 'No AWS credentials configured.' };
+  }
+  
+  try {
+    var s3Client = createS3Client(creds);
+    
+    var abortCommand = new AbortMultipartUploadCommand({
+      Bucket: bucketName,
+      Key: fileName,
+      UploadId: uploadId
+    });
+    
+    await s3Client.send(abortCommand);
+    
+    // Also clear from localStorage
+    clearIncompleteUpload(bucketName, fileName);
+    
+    return { success: true };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: 'Failed to abort upload: ' + (error.message || error)
+    };
+  }
 }

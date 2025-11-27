@@ -15,7 +15,7 @@ import GhostAgent from './components/GhostAgent';
 import SpookyEffects from './components/SpookyEffects';
 import CredentialsModal from './components/CredentialsModal';
 import { hasCredentials } from './utils/awsCredentials';
-import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient, configureBucketCors, checkBucketCors, uploadLargeFileClient, checkIncompleteUploads, clearIncompleteUpload } from './utils/s3Client';
+import { listBucketsClient, listBucketObjectsClient, uploadFileClient, generatePresignedUrlClient, createBucketClient, configureBucketCors, checkBucketCors, uploadLargeFileClient, checkIncompleteUploads, clearIncompleteUpload, abortIncompleteUpload } from './utils/s3Client';
 
 // Web 2.0 compliant interface definitions
 interface S3Bucket {
@@ -66,6 +66,8 @@ interface AppState {
     fileName: string;
     progress: number;
     timestamp: number;
+    uploadId: string;
+    fileSize: number;
   }>;
 }
 
@@ -216,8 +218,8 @@ class App extends Component<{}, AppState> {
   }
   
   /**
-   * Handle resume upload - continue from where we left off!
-   * 2006-style chunked upload technology at its finest!
+   * Handle resume upload - show file picker to re-select the file
+   * TRUE RESUME using S3 multipart upload API!
    */
   handleResumeUpload(bucketName: string, fileName: string) {
     var self = this;
@@ -225,39 +227,86 @@ class App extends Component<{}, AppState> {
     self.playCrunch();
     self.triggerBloodMode();
     
-    var resumeMessages = [
-      '🎃 RESUMING UPLOAD! Picking up where you left off... In MY day, we didn\'t have this luxury! You\'d have to start from ZERO! Consider yourself lucky I implemented chunked uploads!',
-      '👻 ALRIGHT ALRIGHT! I\'ll resume your upload. But next time, DON\'T REFRESH! Back in 2006, we had to babysit our uploads like they were Tamagotchis!',
-      '💀 FINE! Resuming your interrupted upload. In MY day, we uploaded files overnight and prayed the phone line didn\'t disconnect! You kids have it too easy with your "resume" buttons!',
-      '🕸️ RESUMING FROM CHUNK #' + Math.floor(Math.random() * 10) + '! This is cutting-edge 2006 technology! We\'re using localStorage to track progress. Revolutionary!'
-    ];
-    var randomMsg = resumeMessages[Math.floor(Math.random() * resumeMessages.length)];
-    self.triggerGhost('resume', randomMsg);
+    // Create file input to let user re-select the file
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.style.display = 'none';
     
-    self.setState({ 
-      showResumeDialog: false,
-      uploading: true,
-      uploadingFileName: fileName
-    });
+    fileInput.onchange = function(e) {
+      var target = e.target as HTMLInputElement;
+      var file = target.files?.[0];
+      
+      if (!file) {
+        return;
+      }
+      
+      // Verify it's the same file
+      if (file.name !== fileName) {
+        self.handleError({
+          code: 'WrongFile',
+          message: 'Wrong file selected! Expected "' + fileName + '" but got "' + file.name + '". Please select the correct file to resume the upload.',
+          service: 'S3'
+        });
+        return;
+      }
+      
+      // Close the resume dialog
+      self.setState({ showResumeDialog: false });
+      
+      // Trigger resume ghost message
+      var resumeMessages = [
+        '🎃 RESUMING UPLOAD! I saved your progress in localStorage! We\'ll skip the parts you already uploaded. This is REAL 2006 technology - S3 multipart uploads! Revolutionary!',
+        '👻 ALRIGHT! Re-reading the file and resuming from where you left off! In MY day, we had to start from ZERO! You\'re lucky I implemented TRUE multipart resume!',
+        '💀 FINE! Resuming your upload. S3 remembers which parts you uploaded! Back in 2006, this was cutting-edge! Now DON\'T REFRESH AGAIN!',
+        '🕸️ RESUMING! I\'ll skip the chunks you already uploaded and only send the missing parts. This is how REAL uploads work! Keep the tab open this time!'
+      ];
+      var randomMsg = resumeMessages[Math.floor(Math.random() * resumeMessages.length)];
+      self.triggerGhost('resume', randomMsg);
+      
+      // Start the upload (it will automatically resume)
+      self.handleUpload(bucketName, file);
+      
+      // Clean up
+      document.body.removeChild(fileInput);
+    };
     
-    // TODO: Implement actual resume logic
-    // For now, we'll just show the message
-    setTimeout(function() {
-      self.triggerGhost('success', 'Upload resumed successfully! Now DON\'T REFRESH AGAIN!');
-      self.setState({ uploading: false, uploadingFileName: '' });
-    }, 2000);
+    document.body.appendChild(fileInput);
+    fileInput.click();
   }
   
   /**
-   * Handle cancel resume - start fresh
+   * Handle cancel resume - abort the multipart upload on S3
    */
   handleCancelResume(bucketName: string, fileName: string) {
     var self = this;
     
     self.playCrunch();
     
-    // Clear the incomplete upload progress
-    clearIncompleteUpload(bucketName, fileName);
+    // Find the upload to get the uploadId
+    var upload = self.state.incompleteUploads.find(function(u) {
+      return u.bucketName === bucketName && u.fileName === fileName;
+    });
+    
+    if (upload) {
+      // Abort the multipart upload on S3
+      abortIncompleteUpload(bucketName, fileName, upload.uploadId).then(function(result) {
+        if (result.success) {
+          var cancelMessages = [
+            '💀 CANCELLED! I aborted the multipart upload on S3. All those parts... DELETED! In MY day, we didn\'t get do-overs! You uploaded it right the first time or you didn\'t upload at all!',
+            '👻 FINE! Throwing away your progress AND cleaning up S3! Hope you\'re happy! Back in 2006, bandwidth was EXPENSIVE! You just wasted precious kilobytes!',
+            '🎃 UPLOAD ABORTED! All that progress... GONE! I even told S3 to delete the parts! In MY day, we cherished every byte we uploaded! Kids these days have no respect for bandwidth!'
+          ];
+          var randomMsg = cancelMessages[Math.floor(Math.random() * cancelMessages.length)];
+          self.triggerGhost('cancel', randomMsg);
+        } else {
+          self.handleError({
+            code: 'AbortError',
+            message: result.error || 'Failed to abort upload',
+            service: 'S3'
+          });
+        }
+      });
+    }
     
     // Remove from state
     var updatedUploads = self.state.incompleteUploads.filter(function(upload) {
@@ -269,14 +318,6 @@ class App extends Component<{}, AppState> {
     if (updatedUploads.length === 0) {
       self.setState({ showResumeDialog: false });
     }
-    
-    var cancelMessages = [
-      '💀 CANCELLED! Starting fresh, eh? In MY day, we didn\'t get do-overs! You uploaded it right the first time or you didn\'t upload at all!',
-      '👻 FINE! Throwing away your progress. Hope you\'re happy! Back in 2006, bandwidth was EXPENSIVE! You just wasted precious kilobytes!',
-      '🎃 UPLOAD CANCELLED! All that progress... GONE! In MY day, we cherished every byte we uploaded! Kids these days have no respect for bandwidth!'
-    ];
-    var randomMsg = cancelMessages[Math.floor(Math.random() * cancelMessages.length)];
-    self.triggerGhost('cancel', randomMsg);
   }
   
   /**
@@ -300,10 +341,10 @@ class App extends Component<{}, AppState> {
       
       // Trigger ghost with resume message
       var ghostMessages = [
-        '👻 WHOA! I found ' + incompleteUploads.length + ' incomplete upload(s)! You refreshed the page, didn\'t you? In MY day, we had to upload files in one sitting or start over! But I\'ve saved your progress... this time. Click "Resume Upload" to continue where you left off!',
-        '🎃 AHA! Caught you red-handed! You refreshed during an upload! Back in 2006, that would mean starting from SCRATCH! But I\'m feeling generous... I saved your chunks to localStorage. You can resume the upload, but DON\'T make this a habit!',
-        '💀 BUSTED! You interrupted ' + incompleteUploads.length + ' upload(s)! In MY day, we uploaded files via FTP and if the connection dropped, we started OVER! But I\'ve implemented chunked uploads just for you. Resume and finish what you started!',
-        '🕸️ WELL WELL WELL! Look who refreshed the page during an upload! Back in the dial-up days, that would cost you HOURS of re-uploading! Lucky for you, I\'m using 2006-era chunked upload technology. Resume your upload and DON\'T do it again!'
+        '👻 WHOA! I found ' + incompleteUploads.length + ' incomplete upload(s)! You refreshed the page, didn\'t you? But I SAVED YOUR PROGRESS using S3 multipart API! Re-select the file to resume! This is REAL 2006 technology!',
+        '🎃 AHA! Caught you red-handed! You refreshed during an upload! But I\'m not mad... I saved your UploadId and ETags! Re-select the file and I\'ll skip the parts you already uploaded! Revolutionary!',
+        '💀 BUSTED! You interrupted ' + incompleteUploads.length + ' upload(s)! But I implemented TRUE multipart resume! In MY day, we had to start from ZERO! You\'re lucky I\'m using cutting-edge S3 APIs!',
+        '🕸️ WELL WELL WELL! Look who refreshed the page during an upload! But I saved your progress in localStorage! Re-select the file to resume. This is how REAL uploads work in 2006!'
       ];
       var randomMsg = ghostMessages[Math.floor(Math.random() * ghostMessages.length)];
       self.triggerGhost('resume', randomMsg);
@@ -860,14 +901,6 @@ class App extends Component<{}, AppState> {
           // File is too large - check if CORS is configured
           self.setState({ uploading: true, uploadingFileName: file.name });
           
-          // Initialize chunked upload progress tracking
-          var uploadKey = 'phantom_upload_progress_' + bucketName + '_' + file.name;
-          localStorage.setItem(uploadKey, JSON.stringify({
-            lastCompletedChunk: -1,
-            totalChunks: Math.ceil(arrayBuffer.byteLength / (5 * 1024 * 1024)),
-            timestamp: Date.now()
-          }));
-          
           checkBucketCors(bucketName).then(function(corsResult) {
             if (corsResult.configured) {
               // CORS is configured - use presigned URL upload for large files
@@ -887,10 +920,6 @@ class App extends Component<{}, AppState> {
                 self.setState({ uploadProgress: progress.percentage });
               }).then(function(result) {
                 self.setState({ uploading: false, uploadingFileName: '', uploadProgress: 0 });
-                
-                // Clean up upload progress tracking
-                var uploadKey = 'phantom_upload_progress_' + bucketName + '_' + file.name;
-                localStorage.removeItem(uploadKey);
                 
                 if (result.success) {
                   var successMessages = [
@@ -1205,20 +1234,20 @@ class App extends Component<{}, AppState> {
               <div style={{ padding: '20px' }}>
                 {/* Spooky Notice */}
                 <div style={{
-                  backgroundColor: '#FFF3E0',
-                  border: '3px solid #FF6600',
+                  backgroundColor: '#E6F3FF',
+                  border: '3px solid #0066CC',
                   padding: '15px',
                   marginBottom: '20px',
                   fontSize: '13px',
                   fontWeight: 'bold',
                   textAlign: 'center'
                 }}>
-                  🎃 THE PHANTOM SAVED YOUR PROGRESS! 🎃
+                  🎃 INCOMPLETE MULTIPART UPLOAD DETECTED! 🎃
                   <br />
                   <small style={{ fontWeight: 'normal', marginTop: '5px', display: 'block' }}>
-                    You refreshed during upload(s)! In 2006, that meant starting over!
+                    You refreshed during upload! But I saved your progress using S3 multipart API!
                     <br />
-                    But I implemented chunked uploads just for you...
+                    Re-select the file to resume - I'll skip the parts you already uploaded!
                   </small>
                 </div>
                 
@@ -1265,13 +1294,14 @@ class App extends Component<{}, AppState> {
                           onClick={function() { self.handleCancelResume(upload.bucketName, upload.fileName); }}
                           style={{ marginRight: '10px' }}
                         >
-                          🗑️ Start Fresh
+                          🗑️ Cancel & Start Fresh
                         </button>
                         <button 
                           className="retro-button retro-button-primary"
                           onClick={function() { self.handleResumeUpload(upload.bucketName, upload.fileName); }}
+                          style={{ padding: '10px 20px', fontSize: '14px' }}
                         >
-                          ▶️ Resume Upload
+                          ▶️ Resume Upload (Select File)
                         </button>
                       </div>
                     </div>
@@ -1287,9 +1317,9 @@ class App extends Component<{}, AppState> {
                   paddingTop: '10px',
                   fontStyle: 'italic'
                 }}>
-                  💡 <strong>2006 Technology:</strong> Chunked uploads let you resume after page refresh!
-                  Back in MY day, we had to upload files in one sitting or start over from scratch!
-                  This is cutting-edge stuff!
+                  💡 <strong>2006 Technology:</strong> TRUE resumable uploads using S3 multipart API!
+                  I saved your UploadId and ETags in localStorage. When you re-select the file,
+                  I'll skip the parts you already uploaded! Back in MY day, this was cutting-edge!
                 </div>
               </div>
             </div>
