@@ -98,8 +98,8 @@ export async function listBucketObjectsClient(bucketName: string): Promise<{ obj
 }
 
 /**
- * Upload file to S3 bucket using presigned URL (handles large files)
- * Gets a presigned URL from server, then uploads directly to S3
+ * Upload file to S3 bucket via API proxy (avoids CORS issues)
+ * Uploads through our Vercel API which then uploads to S3
  */
 export async function uploadFileClient(
   bucketName: string, 
@@ -116,46 +116,39 @@ export async function uploadFileClient(
   }
   
   try {
-    // Step 1: Get presigned URL from server
-    var presignResponse = await fetch('/api/get-upload-url', {
+    // Convert ArrayBuffer to base64 for JSON transmission
+    var bytes = new Uint8Array(fileContent);
+    var binary = '';
+    for (var i = 0; i < bytes.byteLength; i++) {
+      binary = binary + String.fromCharCode(bytes[i]);
+    }
+    var base64 = window.btoa(binary);
+    
+    // Upload via API proxy (avoids CORS issues)
+    var response = await fetch('/api/upload-with-creds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         credentials: creds,
         bucketName: bucketName,
-        fileName: fileName
+        fileName: fileName,
+        fileContent: base64
       })
     });
     
-    var presignResult = await presignResponse.json();
+    var result = await response.json();
     
-    if (!presignResult.uploadUrl) {
+    if (result.success) {
       return { 
-        success: false, 
-        error: presignResult.error?.message || 'Failed to get upload URL' 
+        success: true, 
+        url: result.url 
       };
-    }
-    
-    // Step 2: Upload directly to S3 using presigned URL
-    var uploadResponse = await fetch(presignResult.uploadUrl, {
-      method: 'PUT',
-      body: fileContent,
-      headers: {
-        'Content-Type': 'application/octet-stream'
-      }
-    });
-    
-    if (!uploadResponse.ok) {
+    } else {
       return {
         success: false,
-        error: 'Upload failed: ' + uploadResponse.statusText
+        error: result.error?.message || result.error || 'Upload failed'
       };
     }
-    
-    return { 
-      success: true, 
-      url: 'https://s3.amazonaws.com/' + bucketName + '/' + fileName 
-    };
   } catch (error: any) {
     return {
       success: false,
