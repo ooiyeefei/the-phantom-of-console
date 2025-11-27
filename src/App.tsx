@@ -57,6 +57,8 @@ interface AppState {
   creatingBucket: boolean;
   lastUploadBucket: string;
   configuringCors: boolean;
+  uploading: boolean;
+  uploadingFileName: string;
 }
 
 /**
@@ -97,7 +99,9 @@ class App extends Component<{}, AppState> {
       newBucketName: '',
       creatingBucket: false,
       lastUploadBucket: '',
-      configuringCors: false
+      configuringCors: false,
+      uploading: false,
+      uploadingFileName: ''
     };
     
     // Bind methods - no arrow functions in 2006!
@@ -743,13 +747,13 @@ class App extends Component<{}, AppState> {
         var maxSize = 3 * 1024 * 1024; // 3MB
         if (arrayBuffer.byteLength > maxSize) {
           // File is too large - check if CORS is configured
-          self.setState({ loading: true });
+          self.setState({ uploading: true, uploadingFileName: file.name });
           checkBucketCors(bucketName).then(function(corsResult) {
             if (corsResult.configured) {
               // CORS is configured - use presigned URL upload for large files
               self.triggerGhost('upload', 'Large file detected! Using direct S3 upload since CORS is configured. Grab a coffee, this might take a minute... In MY day, we had to split files into 1.44MB chunks and mail them on floppy disks!');
               uploadLargeFileClient(bucketName, file.name, arrayBuffer).then(function(result) {
-                self.setState({ loading: false });
+                self.setState({ uploading: false, uploadingFileName: '' });
                 if (result.success) {
                   self.triggerGhost('success', 'Large file uploaded successfully! That would have taken 3 DAYS on a 56k modem! Kids these days don\'t appreciate broadband...');
                   // Refresh bucket list to show the new file
@@ -764,7 +768,7 @@ class App extends Component<{}, AppState> {
               });
             } else {
               // CORS not configured - show error with config button
-              self.setState({ loading: false });
+              self.setState({ uploading: false, uploadingFileName: '' });
               self.triggerGhost('error', 'WHOA THERE! That file is TOO BIG for our serverless function! Files must be under 3MB. In MY day, we had 1.44MB floppy disks and we were GRATEFUL!');
               self.handleError({
                 code: 'FileTooLarge',
@@ -1163,6 +1167,30 @@ class App extends Component<{}, AppState> {
               {self.state.error.code !== 'FileTooLarge' && (
                 <small style={{ color: '#666' }}>Click "Dismiss" to clear this error, or "Connect AWS" to add your credentials.</small>
               )}
+            </div>
+          )}
+          
+          {/* Uploading Indicator */}
+          {self.state.uploading && (
+            <div style={{
+              padding: '15px',
+              background: '#E6F3FF',
+              border: '3px outset #0066CC',
+              marginBottom: '15px',
+              textAlign: 'center'
+            }}>
+              <strong>⏳ Uploading "{self.state.uploadingFileName}"...</strong>
+              <br />
+              <small style={{ color: '#666', marginTop: '5px', display: 'block' }}>
+                Please wait while your file is being uploaded to S3. This may take a moment for large files.
+              </small>
+              <div style={{
+                marginTop: '10px',
+                fontSize: '20px',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}>
+                📤 ⬆️ ☁️
+              </div>
             </div>
           )}
           
