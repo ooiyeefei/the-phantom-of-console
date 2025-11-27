@@ -728,3 +728,26 @@ body.ghost-glitch .phantom-container {
     opacity: 0.8;
   }
 }
+
+/* 2006-style loading bar animation */
+@keyframes loading-bar {
+  0% { 
+    transform: translateX(-40px); 
+  }
+  100% { 
+    transform: translateX(0px); 
+  }
+}
+
+/* Animated loading dots */
+.loading-dots::after {
+  content: '';
+  animation: loading-dots-anim 1.5s steps(4, end) infinite;
+}
+
+@keyframes loading-dots-anim {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}

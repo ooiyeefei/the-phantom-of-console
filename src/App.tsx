@@ -1252,20 +1252,41 @@ class App extends Component<{}, AppState> {
                   <br />
                   This ancient ritual may take a moment for large files.
                 </small>
+                
+                {/* 2006-style loading bar */}
                 <div style={{
-                  marginTop: '15px',
-                  fontSize: '24px',
-                  animation: 'spin 2s linear infinite'
+                  marginTop: '20px',
+                  marginBottom: '15px'
                 }}>
-                  🌀 ☁️ 🌀
-                </div>
-                <div style={{
-                  marginTop: '10px',
-                  color: '#FF6600',
-                  fontSize: '12px',
-                  fontWeight: 'bold'
-                }}>
-                  ⚡ UPLOADING IN PROGRESS ⚡
+                  <div style={{
+                    width: '80%',
+                    height: '30px',
+                    margin: '0 auto',
+                    background: '#000000',
+                    border: '3px inset #666666',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Animated loading bar */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      height: '100%',
+                      width: '100%',
+                      background: 'repeating-linear-gradient(90deg, #FF6600 0px, #FF6600 20px, #FF9900 20px, #FF9900 40px)',
+                      animation: 'loading-bar 1.5s linear infinite'
+                    }} />
+                  </div>
+                  <div style={{
+                    marginTop: '10px',
+                    color: '#FF6600',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    fontFamily: 'Courier New, monospace'
+                  }}>
+                    ⚡ UPLOADING<span className="loading-dots"></span> ⚡
+                  </div>
                 </div>
               </div>
             </div>
