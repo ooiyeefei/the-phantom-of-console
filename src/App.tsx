@@ -63,7 +63,6 @@ interface AppState {
  */
 class App extends Component<{}, AppState> {
   private dialupAudio: HTMLAudioElement | null = null;
-  private hddAudio: HTMLAudioElement | null = null;
   private spookyAudio: HTMLAudioElement | null = null;
   private uploadDelayTimer: number | null = null;
   private activeAudioInstances: HTMLAudioElement[] = [];
@@ -108,7 +107,6 @@ class App extends Component<{}, AppState> {
     this.handleCloseShareDialog = this.handleCloseShareDialog.bind(this);
     this.handleGenerateShareLink = this.handleGenerateShareLink.bind(this);
     this.enableAudio = this.enableAudio.bind(this);
-    this.playHddSound = this.playHddSound.bind(this);
     this.playCrunch = this.playCrunch.bind(this);
     this.triggerGhost = this.triggerGhost.bind(this);
     this.triggerBloodHeader = this.triggerBloodHeader.bind(this);
@@ -219,19 +217,7 @@ class App extends Component<{}, AppState> {
     }
   }
   
-  /**
-   * Play HDD crunch sound for button clicks
-   */
-  playHddSound() {
-    var self = this;
-    if (self.state.audioEnabled && !self.state.audioMuted) {
-      self.hddAudio = new Audio('/sounds/hdd-crunch.mp3');
-      self.hddAudio.play().catch(function(e) {
-        console.error('Could not play HDD sound:', e);
-      });
-    }
-  }
-  
+
   /**
    * Play crunch sound - creates new instance for overlapping sounds
    * Web 2.0 compliant audio engine!
@@ -272,10 +258,7 @@ class App extends Component<{}, AppState> {
         self.dialupAudio.pause();
         self.dialupAudio.currentTime = 0;
       }
-      if (self.hddAudio) {
-        self.hddAudio.pause();
-        self.hddAudio.currentTime = 0;
-      }
+
       if (self.spookyAudio) {
         self.spookyAudio.pause();
         self.spookyAudio.currentTime = 0;
@@ -464,7 +447,6 @@ class App extends Component<{}, AppState> {
   loadBuckets() {
     var self = this;
     self.setState({ loading: true, error: null });
-    self.playHddSound();
     
     // Use client-side AWS SDK if credentials are configured
     if (self.state.useClientSideAWS) {
@@ -557,7 +539,6 @@ class App extends Component<{}, AppState> {
   loadBucketContents(bucketName: string) {
     var self = this;
     self.setState({ loadingContents: true, error: null });
-    self.playHddSound();
     
     // Use client-side AWS SDK if credentials are configured
     if (self.state.useClientSideAWS) {
@@ -633,9 +614,6 @@ class App extends Component<{}, AppState> {
    */
   handleGenerateShareLink(expiresIn: number) {
     var self = this;
-    
-    // Play HDD crunch sound - sharing takes processing power!
-    self.playCrunch();
     
     // Trigger blood mode - the horror of sharing files!
     self.triggerBloodMode();
