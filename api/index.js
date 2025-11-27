@@ -16,6 +16,9 @@ var generatePresignedUrl = awsWrapper.generatePresignedUrl;
 var S3Client = require('@aws-sdk/client-s3').S3Client;
 var ListBucketsCommand = require('@aws-sdk/client-s3').ListBucketsCommand;
 var ListObjectsV2Command = require('@aws-sdk/client-s3').ListObjectsV2Command;
+var PutObjectCommand = require('@aws-sdk/client-s3').PutObjectCommand;
+var getSignedUrl = require('@aws-sdk/s3-request-presigner').getSignedUrl;
+var GetObjectCommand = require('@aws-sdk/client-s3').GetObjectCommand;
 
 /**
  * Main serverless function handler
@@ -180,6 +183,123 @@ module.exports = async function handler(req, res) {
       if (bucketName) {
         var result = await listBucketObjects(bucketName);
         return res.status(200).json(result);
+      }
+    }
+    
+    // Route: POST /api/upload-with-creds (upload file with client credentials)
+    if (url.startsWith('/api/upload-with-creds') && method === 'POST') {
+      var body = req.body;
+      
+      if (!body || !body.accessKeyId || !body.secretAccessKey) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingCredentials',
+            message: 'AWS credentials are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      if (!body.bucketName || !body.fileName || !body.fileContent) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingParameters',
+            message: 'bucketName, fileName, and fileContent are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      try {
+        var s3Client = new S3Client({
+          region: body.region || 'us-east-1',
+          credentials: {
+            accessKeyId: body.accessKeyId,
+            secretAccessKey: body.secretAccessKey
+          }
+        });
+        
+        // Decode base64 file content
+        var fileBuffer = Buffer.from(body.fileContent, 'base64');
+        
+        var command = new PutObjectCommand({
+          Bucket: body.bucketName,
+          Key: body.fileName,
+          Body: fileBuffer
+        });
+        
+        await s3Client.send(command);
+        
+        return res.status(200).json({
+          success: true,
+          url: 'https://s3.amazonaws.com/' + body.bucketName + '/' + body.fileName,
+          message: 'File uploaded successfully'
+        });
+      } catch (error) {
+        return res.status(500).json({
+          error: {
+            code: error.name || 'UploadError',
+            message: error.message || 'Failed to upload file',
+            service: 'S3'
+          }
+        });
+      }
+    }
+    
+    // Route: POST /api/share-with-creds (generate presigned URL with client credentials)
+    if (url.startsWith('/api/share-with-creds') && method === 'POST') {
+      var body = req.body;
+      
+      if (!body || !body.accessKeyId || !body.secretAccessKey) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingCredentials',
+            message: 'AWS credentials are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      if (!body.bucketName || !body.key) {
+        return res.status(400).json({
+          error: {
+            code: 'MissingParameters',
+            message: 'bucketName and key are required',
+            service: 'S3'
+          }
+        });
+      }
+      
+      try {
+        var s3Client = new S3Client({
+          region: body.region || 'us-east-1',
+          credentials: {
+            accessKeyId: body.accessKeyId,
+            secretAccessKey: body.secretAccessKey
+          }
+        });
+        
+        var command = new GetObjectCommand({
+          Bucket: body.bucketName,
+          Key: body.key
+        });
+        
+        var expiresIn = body.expiresIn || 3600;
+        var url = await getSignedUrl(s3Client, command, { expiresIn: expiresIn });
+        
+        return res.status(200).json({
+          url: url,
+          expiresIn: expiresIn,
+          message: 'Pre-signed URL generated successfully'
+        });
+      } catch (error) {
+        return res.status(500).json({
+          error: {
+            code: error.name || 'S3PresignError',
+            message: error.message || 'Failed to generate presigned URL',
+            service: 'S3'
+          }
+        });
       }
     }
     
