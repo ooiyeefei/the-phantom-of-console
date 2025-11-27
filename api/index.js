@@ -190,7 +190,10 @@ module.exports = async function handler(req, res) {
     if (url.startsWith('/api/upload-with-creds') && method === 'POST') {
       var body = req.body;
       
-      if (!body || !body.accessKeyId || !body.secretAccessKey) {
+      // Extract credentials from nested object or top level
+      var creds = body.credentials || body;
+      
+      if (!creds || !creds.accessKeyId || !creds.secretAccessKey) {
         return res.status(400).json({
           error: {
             code: 'MissingCredentials',
@@ -212,10 +215,10 @@ module.exports = async function handler(req, res) {
       
       try {
         var s3Client = new S3Client({
-          region: body.region || 'us-east-1',
+          region: creds.region || 'us-east-1',
           credentials: {
-            accessKeyId: body.accessKeyId,
-            secretAccessKey: body.secretAccessKey
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
           }
         });
         
@@ -250,7 +253,10 @@ module.exports = async function handler(req, res) {
     if (url.startsWith('/api/share-with-creds') && method === 'POST') {
       var body = req.body;
       
-      if (!body || !body.accessKeyId || !body.secretAccessKey) {
+      // Extract credentials from nested object or top level
+      var creds = body.credentials || body;
+      
+      if (!creds || !creds.accessKeyId || !creds.secretAccessKey) {
         return res.status(400).json({
           error: {
             code: 'MissingCredentials',
@@ -272,10 +278,10 @@ module.exports = async function handler(req, res) {
       
       try {
         var s3Client = new S3Client({
-          region: body.region || 'us-east-1',
+          region: creds.region || 'us-east-1',
           credentials: {
-            accessKeyId: body.accessKeyId,
-            secretAccessKey: body.secretAccessKey
+            accessKeyId: creds.accessKeyId,
+            secretAccessKey: creds.secretAccessKey
           }
         });
         
