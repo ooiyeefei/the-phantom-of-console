@@ -743,13 +743,16 @@ class App extends Component<{}, AppState> {
         var maxSize = 3 * 1024 * 1024; // 3MB
         if (arrayBuffer.byteLength > maxSize) {
           // File is too large - check if CORS is configured
+          self.setState({ loading: true });
           checkBucketCors(bucketName).then(function(corsResult) {
             if (corsResult.configured) {
               // CORS is configured - use presigned URL upload for large files
-              self.triggerGhost('upload', 'Large file detected! Using direct S3 upload since CORS is configured. In MY day, we had to split files into 1.44MB chunks and mail them on floppy disks!');
+              self.triggerGhost('upload', 'Large file detected! Using direct S3 upload since CORS is configured. Grab a coffee, this might take a minute... In MY day, we had to split files into 1.44MB chunks and mail them on floppy disks!');
               uploadLargeFileClient(bucketName, file.name, arrayBuffer).then(function(result) {
+                self.setState({ loading: false });
                 if (result.success) {
                   self.triggerGhost('success', 'Large file uploaded successfully! That would have taken 3 DAYS on a 56k modem! Kids these days don\'t appreciate broadband...');
+                  // Refresh bucket list to show the new file
                   self.loadBuckets();
                 } else {
                   self.handleError({
@@ -761,6 +764,7 @@ class App extends Component<{}, AppState> {
               });
             } else {
               // CORS not configured - show error with config button
+              self.setState({ loading: false });
               self.triggerGhost('error', 'WHOA THERE! That file is TOO BIG for our serverless function! Files must be under 3MB. In MY day, we had 1.44MB floppy disks and we were GRATEFUL!');
               self.handleError({
                 code: 'FileTooLarge',
