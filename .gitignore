@@ -26,3 +26,7 @@ npm-debug.log*
 # Temp files
 /tmp/
 *.tmp
+
+SUBMISSION_CHECKLIST.md
+DEPLOYMENT.md
+VERCEL_DEPLOY.md

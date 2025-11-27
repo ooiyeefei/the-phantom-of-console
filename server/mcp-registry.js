@@ -4,7 +4,7 @@
  * Web 2.0 compliant, enterprise-grade tool definitions
  */
 
-import { listBuckets, uploadFile, validateCredentials } from './aws-wrapper.js';
+import { listBuckets, listBucketObjects, uploadFile, validateCredentials, generatePresignedUrl } from './aws-wrapper.js';
 
 /**
  * Tool definitions for MCP - JSON Schema format
@@ -18,6 +18,20 @@ export var tools = [
       type: 'object',
       properties: {},
       required: []
+    }
+  },
+  {
+    name: 'list_bucket_objects',
+    description: 'List all objects (files) in an S3 bucket. Returns file keys, sizes, and last modified dates. In Séance Mode (demo), returns haunted mock files.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bucketName: {
+          type: 'string',
+          description: 'The name of the S3 bucket to list objects from'
+        }
+      },
+      required: ['bucketName']
     }
   },
   {
@@ -50,6 +64,28 @@ export var tools = [
       properties: {},
       required: []
     }
+  },
+  {
+    name: 'generate_presigned_url',
+    description: 'Generate a temporary pre-signed URL for sharing an S3 file. URL expires after specified time (default 3600 seconds). In Séance Mode, returns a mock LimeWire-style URL.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bucketName: {
+          type: 'string',
+          description: 'The name of the S3 bucket containing the file'
+        },
+        key: {
+          type: 'string',
+          description: 'The key (path) of the file in the bucket'
+        },
+        expiresIn: {
+          type: 'number',
+          description: 'Time in seconds until the URL expires (default: 3600). Common values: 3600 (1hr), 86400 (24hr), 604800 (7days)'
+        }
+      },
+      required: ['bucketName', 'key']
+    }
   }
 ];
 
@@ -62,6 +98,10 @@ export async function handleToolCall(name, args) {
   // Web 2.0 compliant switch statement - no fancy pattern matching here!
   if (name === 'list_buckets') {
     return await listBuckets();
+  }
+  
+  if (name === 'list_bucket_objects') {
+    return await listBucketObjects(args.bucketName);
   }
   
   if (name === 'upload_file') {
@@ -97,5 +137,10 @@ export async function handleToolCall(name, args) {
     return await validateCredentials();
   }
   
-  throw new Error('Unknown tool: ' + name + '. Did you mean list_buckets or upload_file?');
+  if (name === 'generate_presigned_url') {
+    var expiresIn = args.expiresIn || 3600; // Default to 1 hour
+    return await generatePresignedUrl(args.bucketName, args.key, expiresIn);
+  }
+  
+  throw new Error('Unknown tool: ' + name + '. Did you mean list_buckets, list_bucket_objects, upload_file, or generate_presigned_url?');
 }

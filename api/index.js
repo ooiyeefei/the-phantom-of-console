@@ -1,27 +1,19 @@
 /**
- * Express HTTP Server - The Bridge
+ * Vercel Serverless Function - Express API Wrapper
  * 
- * This server exposes HTTP endpoints for the web frontend.
- * It's separate from mcp-stdio.js which handles Kiro communication.
- * 
- * Web 2.0 compliant, enterprise-grade HTTP API
- * Remember: In 2006, REST APIs are the cutting edge!
+ * This wraps our Express server for Vercel's serverless environment
+ * Web 2.0 compliant, enterprise-grade serverless deployment!
  */
 
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import dotenv from 'dotenv';
-import { listBuckets, listBucketObjects, uploadFile, validateCredentials, generatePresignedUrl } from './aws-wrapper.js';
+import { listBuckets, listBucketObjects, uploadFile, validateCredentials, generatePresignedUrl } from '../server/aws-wrapper.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-// Load environment variables - .env files are so modern!
-dotenv.config();
-
 var app = express();
-var PORT = process.env.PORT || 3000;
 
 // 🎃 CRITICAL: Enable CORS with wildcard to prevent ANY demo failures
 app.use(cors({ origin: '*' }));
@@ -62,7 +54,6 @@ app.use('/api', latencyMiddleware);
 
 /**
  * GET /api/buckets - List all S3 buckets (demo mode)
- * The most important endpoint in our haunted console
  */
 app.get('/api/buckets', async function(req, res, next) {
   try {
@@ -75,7 +66,6 @@ app.get('/api/buckets', async function(req, res, next) {
 
 /**
  * POST /api/buckets-with-creds - List buckets using client-provided credentials
- * Credentials are used for this request only, never stored on server
  */
 app.post('/api/buckets-with-creds', async function(req, res, next) {
   try {
@@ -85,7 +75,6 @@ app.post('/api/buckets-with-creds', async function(req, res, next) {
       return res.json({ error: { message: 'Missing credentials' } });
     }
     
-    // Use AWS CLI with provided credentials (not stored)
     var command = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + creds.region + '" aws s3 ls';
     
     var exec = (await import('child_process')).exec;
@@ -94,7 +83,6 @@ app.post('/api/buckets-with-creds', async function(req, res, next) {
       if (error) {
         res.json({ error: { message: stderr || error.message } });
       } else {
-        // Parse the output
         var buckets = [];
         var lines = stdout.trim().split('\n');
         for (var i = 0; i < lines.length; i++) {
@@ -118,10 +106,8 @@ app.post('/api/buckets-with-creds', async function(req, res, next) {
   }
 });
 
-
 /**
  * POST /api/upload - Upload a file to S3 (demo mode)
- * Revolutionary cloud storage at your fingertips!
  */
 app.post('/api/upload', upload.single('file'), async function(req, res, next) {
   try {
@@ -129,7 +115,7 @@ app.post('/api/upload', upload.single('file'), async function(req, res, next) {
       return res.status(400).json({
         error: {
           code: 'NoFileProvided',
-          message: 'No file was uploaded. Did you forget to attach it?',
+          message: 'No file was uploaded.',
           service: 'S3',
           timestamp: Date.now()
         }
@@ -141,7 +127,7 @@ app.post('/api/upload', upload.single('file'), async function(req, res, next) {
       return res.status(400).json({
         error: {
           code: 'NoBucketSpecified',
-          message: 'Please specify a bucket name. S3 needs to know where to put your file!',
+          message: 'Please specify a bucket name.',
           service: 'S3',
           timestamp: Date.now()
         }
@@ -150,7 +136,6 @@ app.post('/api/upload', upload.single('file'), async function(req, res, next) {
     
     var result = await uploadFile(bucketName, req.file.originalname, req.file.path);
     
-    // Clean up temp file - we're responsible sysadmins!
     try { fs.unlinkSync(req.file.path); } catch (e) { /* ignore */ }
     
     if (result.success) {
@@ -164,52 +149,7 @@ app.post('/api/upload', upload.single('file'), async function(req, res, next) {
 });
 
 /**
- * POST /api/upload-with-creds - Upload file using client-provided credentials
- * Credentials are used for this request only, never stored on server
- */
-app.post('/api/upload-with-creds', async function(req, res, next) {
-  try {
-    var data = req.body;
-    var creds = data.credentials;
-    var bucketName = data.bucketName;
-    var fileName = data.fileName;
-    var fileContent = data.fileContent; // Base64 encoded
-    
-    if (!creds || !bucketName || !fileName || !fileContent) {
-      return res.json({ success: false, error: { message: 'Missing required fields' } });
-    }
-    
-    // Decode base64 and write to temp file
-    var tempPath = path.join(os.tmpdir(), 'phantom-upload-' + Date.now());
-    var buffer = Buffer.from(fileContent, 'base64');
-    fs.writeFileSync(tempPath, buffer);
-    
-    // Use AWS CLI with provided credentials
-    var command = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + creds.region + '" aws s3 cp "' + tempPath + '" "s3://' + bucketName + '/' + fileName + '"';
-    
-    var exec = (await import('child_process')).exec;
-    
-    exec(command, function(error, stdout, stderr) {
-      // Clean up temp file
-      try { fs.unlinkSync(tempPath); } catch (e) { /* ignore */ }
-      
-      if (error) {
-        res.json({ success: false, error: { message: stderr || error.message } });
-      } else {
-        res.json({ 
-          success: true, 
-          url: 'https://' + bucketName + '.s3.' + creds.region + '.amazonaws.com/' + fileName 
-        });
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/status - Check system status and credentials
- * Every enterprise app needs a health check endpoint
+ * GET /api/status - Check system status
  */
 app.get('/api/status', async function(req, res, next) {
   try {
@@ -229,55 +169,7 @@ app.get('/api/status', async function(req, res, next) {
 });
 
 /**
- * POST /api/test-credentials - Test AWS credentials from client
- * Validates credentials without storing them on server
- */
-app.post('/api/test-credentials', async function(req, res, next) {
-  try {
-    var creds = req.body;
-    
-    if (!creds.accessKeyId || !creds.secretAccessKey || !creds.region) {
-      return res.json({ valid: false, error: 'Missing required fields' });
-    }
-    
-    // Basic format validation
-    if (!creds.accessKeyId.startsWith('AKIA') || creds.accessKeyId.length !== 20) {
-      return res.json({ valid: false, error: 'Invalid Access Key ID format. Should start with AKIA and be 20 characters.' });
-    }
-    
-    if (creds.secretAccessKey.length < 20) {
-      return res.json({ valid: false, error: 'Secret Access Key appears too short.' });
-    }
-    
-    // Try to validate with AWS using the provided credentials
-    var command = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + creds.region + '" aws sts get-caller-identity';
-    
-    var exec = (await import('child_process')).exec;
-    
-    exec(command, function(error, stdout, stderr) {
-      if (error) {
-        var errorMsg = stderr || error.message;
-        if (errorMsg.includes('InvalidClientTokenId')) {
-          res.json({ valid: false, error: 'Invalid Access Key ID' });
-        } else if (errorMsg.includes('SignatureDoesNotMatch')) {
-          res.json({ valid: false, error: 'Invalid Secret Access Key' });
-        } else if (errorMsg.includes('ExpiredToken')) {
-          res.json({ valid: false, error: 'Credentials have expired' });
-        } else {
-          res.json({ valid: false, error: 'Could not validate: ' + errorMsg.substring(0, 100) });
-        }
-      } else {
-        res.json({ valid: true, identity: JSON.parse(stdout) });
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/buckets/:bucketName/objects - List objects in a bucket (demo mode)
- * Browse your cloud files like it's Windows Explorer!
+ * GET /api/buckets/:bucketName/objects - List objects in a bucket
  */
 app.get('/api/buckets/:bucketName/objects', async function(req, res, next) {
   try {
@@ -290,8 +182,7 @@ app.get('/api/buckets/:bucketName/objects', async function(req, res, next) {
 });
 
 /**
- * POST /api/buckets-with-creds/:bucketName/objects - List bucket objects using client-provided credentials
- * Credentials are used for this request only, never stored on server
+ * POST /api/buckets-with-creds/:bucketName/objects - List bucket objects with credentials
  */
 app.post('/api/buckets-with-creds/:bucketName/objects', async function(req, res, next) {
   try {
@@ -302,7 +193,6 @@ app.post('/api/buckets-with-creds/:bucketName/objects', async function(req, res,
       return res.json({ error: { message: 'Missing credentials' } });
     }
     
-    // Use AWS CLI with provided credentials (not stored)
     var command = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + creds.region + '" aws s3 ls "s3://' + bucketName + '/"';
     
     var exec = (await import('child_process')).exec;
@@ -311,7 +201,6 @@ app.post('/api/buckets-with-creds/:bucketName/objects', async function(req, res,
       if (error) {
         res.json({ error: { message: stderr || error.message } });
       } else {
-        // Parse the output
         var objects = [];
         var lines = stdout.trim().split('\n');
         for (var i = 0; i < lines.length; i++) {
@@ -336,20 +225,19 @@ app.post('/api/buckets-with-creds/:bucketName/objects', async function(req, res,
 });
 
 /**
- * POST /api/share - Generate pre-signed URL for file sharing (demo mode)
- * Like LimeWire but with AWS S3 - the future of file sharing!
+ * POST /api/share - Generate pre-signed URL
  */
 app.post('/api/share', async function(req, res, next) {
   try {
     var bucketName = req.body.bucketName;
     var key = req.body.key;
-    var expiresIn = req.body.expiresIn || 3600; // Default to 1 hour
+    var expiresIn = req.body.expiresIn || 3600;
     
     if (!bucketName || !key) {
       return res.status(400).json({
         error: {
           code: 'MissingParameters',
-          message: 'Please specify both bucketName and key. We need to know what file to share!',
+          message: 'Please specify both bucketName and key.',
           service: 'S3',
           timestamp: Date.now()
         }
@@ -369,9 +257,7 @@ app.post('/api/share', async function(req, res, next) {
 });
 
 /**
- * POST /api/create-bucket-with-creds - Create a new S3 bucket using client-provided credentials
- * Credentials are used for this request only, never stored on server
- * Web 2.0 compliant bucket provisioning - revolutionary cloud storage!
+ * POST /api/create-bucket-with-creds - Create bucket with credentials
  */
 app.post('/api/create-bucket-with-creds', async function(req, res, next) {
   try {
@@ -385,26 +271,20 @@ app.post('/api/create-bucket-with-creds', async function(req, res, next) {
     
     var exec = (await import('child_process')).exec;
     
-    // Build the create bucket command - S3 bucket creation is region-specific!
-    // For us-east-1, we don't need LocationConstraint (classic AWS quirk!)
     var command;
     if (creds.region === 'us-east-1') {
       command = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + creds.region + '" aws s3api create-bucket --bucket "' + bucketName + '"';
     } else {
-      // For other regions, we need to specify the LocationConstraint
       command = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + creds.region + '" aws s3api create-bucket --bucket "' + bucketName + '" --create-bucket-configuration LocationConstraint=' + creds.region;
     }
     
     exec(command, function(error, stdout, stderr) {
       if (error) {
         var errorMsg = stderr || error.message;
-        // Parse common S3 errors for better user experience
         if (errorMsg.includes('BucketAlreadyExists') || errorMsg.includes('BucketAlreadyOwnedByYou')) {
-          res.json({ success: false, error: { message: 'A bucket with this name already exists. S3 bucket names must be globally unique!' } });
+          res.json({ success: false, error: { message: 'Bucket name already exists.' } });
         } else if (errorMsg.includes('InvalidBucketName')) {
-          res.json({ success: false, error: { message: 'Invalid bucket name. Use only lowercase letters, numbers, hyphens, and periods.' } });
-        } else if (errorMsg.includes('AccessDenied')) {
-          res.json({ success: false, error: { message: 'Access denied. Your IAM user needs s3:CreateBucket permission.' } });
+          res.json({ success: false, error: { message: 'Invalid bucket name.' } });
         } else {
           res.json({ success: false, error: { message: errorMsg } });
         }
@@ -418,8 +298,7 @@ app.post('/api/create-bucket-with-creds', async function(req, res, next) {
 });
 
 /**
- * POST /api/share-with-creds - Generate pre-signed URL using client-provided credentials
- * Credentials are used for this request only, never stored on server
+ * POST /api/share-with-creds - Generate pre-signed URL with credentials
  */
 app.post('/api/share-with-creds', async function(req, res, next) {
   try {
@@ -435,23 +314,20 @@ app.post('/api/share-with-creds', async function(req, res, next) {
     
     var exec = (await import('child_process')).exec;
     
-    // First, get the bucket's region - critical for cross-region buckets!
     var getBucketRegionCmd = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + creds.region + '" aws s3api get-bucket-location --bucket "' + bucketName + '"';
     
     exec(getBucketRegionCmd, function(regionError, regionStdout, regionStderr) {
-      var bucketRegion = creds.region; // Default to user's region
+      var bucketRegion = creds.region;
       
       if (!regionError && regionStdout) {
         try {
           var locationResult = JSON.parse(regionStdout);
-          // AWS returns null for us-east-1 buckets (classic AWS!)
           bucketRegion = locationResult.LocationConstraint || 'us-east-1';
         } catch (e) {
-          // If parsing fails, use default region
+          // Use default region
         }
       }
       
-      // Now generate presigned URL with the correct region
       var command = 'AWS_ACCESS_KEY_ID="' + creds.accessKeyId + '" AWS_SECRET_ACCESS_KEY="' + creds.secretAccessKey + '" AWS_DEFAULT_REGION="' + bucketRegion + '" aws s3 presign "s3://' + bucketName + '/' + key + '" --expires-in ' + expiresIn + ' --region ' + bucketRegion;
       
       exec(command, function(error, stdout, stderr) {
@@ -470,25 +346,5 @@ app.post('/api/share-with-creds', async function(req, res, next) {
 // Apply error handler
 app.use(errorHandler);
 
-// Start the server - let the haunting begin!
-app.listen(PORT, function() {
-  console.log('');
-  console.log('👻 ═══════════════════════════════════════════════════════════ 👻');
-  console.log('');
-  console.log('   THE PHANTOM OF THE CONSOLE');
-  console.log('   Enterprise-Grade AWS Management (circa 2006)');
-  console.log('');
-  console.log('   Server running on http://localhost:' + PORT);
-  console.log('   Mode: ' + (process.env.DEMO_MODE === 'true' ? '🎃 SÉANCE MODE' : '🔥 LIVE MODE'));
-  console.log('');
-  console.log('   API Endpoints:');
-  console.log('   - GET  /api/buckets                    - List S3 buckets');
-  console.log('   - GET  /api/buckets/:bucket/objects    - List bucket contents');
-  console.log('   - POST /api/upload                     - Upload file to S3');
-  console.log('   - POST /api/share                      - Generate pre-signed URL');
-  console.log('   - POST /api/create-bucket-with-creds   - Create new S3 bucket');
-  console.log('   - GET  /api/status                     - Check system status');
-  console.log('');
-  console.log('👻 ═══════════════════════════════════════════════════════════ 👻');
-  console.log('');
-});
+// Export for Vercel serverless
+export default app;

@@ -13,21 +13,22 @@
   box-sizing: border-box;
 }
 
-/* Body - the foundation of our haunted console */
+/* Body - Classic AWS 2006 look */
 body {
   font-family: 'Verdana', 'Times New Roman', serif;
   font-size: 12px;
   line-height: 1.4;
-  background-color: #CCCCCC;
+  background-color: #FFFFFF;
   color: #000000;
 }
 
-/* Main container - fixed width like a proper 2006 website */
+/* Main container - Liquid layout fills the screen */
 .phantom-container {
-  width: 1024px;
+  width: 100%;
   margin: 0 auto;
   background-color: #FFFFFF;
-  border: 1px solid #003366;
+  border: 1px solid #FF9900;
+  color: #000000;
 }
 
 /* Header - AWS Orange glory */
@@ -57,16 +58,20 @@ body {
 }
 
 .phantom-nav a {
-  color: #FFFFFF;
+  color: #FFFFFF !important;
   text-decoration: none;
   padding: 5px 10px;
   font-size: 11px;
   font-weight: bold;
 }
 
+.phantom-nav a:visited {
+  color: #FFFFFF !important;
+}
+
 .phantom-nav a:hover {
   background-color: #FF9900;
-  color: #003366;
+  color: #003366 !important;
 }
 
 
@@ -112,46 +117,51 @@ body {
   font-weight: bold;
 }
 
-/* Links - blue and underlined, as God intended */
+/* Links - Classic blue links */
 a {
-  color: #0000FF;
+  color: #003366;
   text-decoration: underline;
 }
 
 a:visited {
-  color: #800080;
+  color: #551A8B;
 }
 
 a:hover {
-  color: #FF0000;
+  color: #FF9900;
 }
 
-/* Tables - the backbone of Web 2.0 layouts */
+/* Tables - Classic Windows XP/2000 style */
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  border: 2px solid #003366;
+  border: 2px solid #cccccc;
   margin-bottom: 15px;
 }
 
 .data-table th {
-  background-color: #003366;
+  background: linear-gradient(to bottom, #4a6fa5, #003366);
   color: #FFFFFF;
   padding: 8px 10px;
   text-align: left;
   font-size: 11px;
   font-weight: bold;
-  border: 1px solid #003366;
+  border: 1px solid #cccccc;
 }
 
 .data-table td {
   padding: 6px 10px;
-  border: 1px solid #CCCCCC;
+  border: 1px solid #cccccc;
   font-size: 11px;
+  color: #000000;
 }
 
 .data-table tr:nth-child(even) {
-  background-color: #F0F0F0;
+  background-color: #f0f0f0;
+}
+
+.data-table tr:nth-child(odd) {
+  background-color: #FFFFFF;
 }
 
 .data-table tr:hover {
@@ -328,6 +338,34 @@ body.glitch-intense {
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   📺 CRT OVERLAY - Dying hardware simulation
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes crt-flicker {
+  0% { opacity: 0.03; }
+  50% { opacity: 0.05; }
+  100% { opacity: 0.03; }
+}
+
+.crt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9997;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.05) 0px,
+    rgba(0, 0, 0, 0.05) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  animation: crt-flicker 0.15s infinite;
+}
+
 /* Red flash on error */
 @keyframes red-flash {
   0%, 100% { background-color: transparent; }
@@ -351,6 +389,7 @@ body.glitch-intense {
   z-index: 9999;
   font-family: 'Verdana', sans-serif;
   font-size: 11px;
+  color: #000000; /* Black text on yellow background for readability */
 }
 
 .ghost-agent-header {
@@ -369,6 +408,7 @@ body.glitch-intense {
 
 .ghost-agent-body {
   padding: 10px;
+  color: #000000; /* Black text for readability on yellow */
 }
 
 .ghost-agent-avatar {
@@ -387,6 +427,7 @@ body.glitch-intense {
 .ghost-agent-message {
   overflow: hidden;
   min-height: 60px;
+  color: #000000; /* Black text for readability */
 }
 
 .ghost-agent-minimized {
@@ -454,6 +495,163 @@ body.ghost-glitch .phantom-container {
 .phantom-header.bleeding h1,
 .phantom-header.bleeding .tagline {
   color: #FFFFFF;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   🩸 BLOOD MODE - Realistic blood drip effect
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Flash the header red briefly */
+.phantom-header.blood-mode {
+  background-color: #8B0000 !important;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.phantom-header.blood-mode h1,
+.phantom-header.blood-mode .tagline {
+  color: #FFFFFF !important;
+}
+
+/* The container for the blood drips */
+.blood-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 10;
+}
+
+/* Blood drip - realistic and clean */
+.blood-drip-drop {
+  position: absolute;
+  top: 0;
+  width: 11px;
+  height: 0;
+  background: 
+    radial-gradient(ellipse at 35% 20%, rgba(180, 30, 30, 0.4) 0%, transparent 60%),
+    linear-gradient(to bottom, 
+      #550000 0%, 
+      #6a0000 20%,
+      #8B0000 45%,
+      #9a0000 70%,
+      rgba(120, 0, 0, 0.6) 90%,
+      transparent 100%
+    );
+  border-radius: 0 0 6px 6px;
+  opacity: 0.88;
+  box-shadow: 
+    0 0 6px rgba(139, 0, 0, 0.7),
+    inset -2px 0 3px rgba(0, 0, 0, 0.5),
+    inset 1px 0 2px rgba(160, 20, 20, 0.3);
+  animation: bloodDrip 2.8s ease-in forwards;
+}
+
+/* Width variation for organic look */
+.blood-drip-drop:nth-child(2n) {
+  width: 9px;
+}
+
+.blood-drip-drop:nth-child(3n) {
+  width: 13px;
+  opacity: 0.85;
+}
+
+.blood-drip-drop:nth-child(5n) {
+  width: 10px;
+}
+
+/* Realistic drip animation */
+@keyframes bloodDrip {
+  0% { 
+    height: 0;
+    opacity: 0;
+  }
+  12% {
+    height: 40px;
+    opacity: 0.88;
+  }
+  35% {
+    height: 90px;
+    opacity: 0.85;
+  }
+  60% {
+    height: 150px;
+    opacity: 0.75;
+  }
+  85% {
+    height: 200px;
+    opacity: 0.4;
+  }
+  100% { 
+    height: 240px;
+    opacity: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   📳 SHAKE EFFECT - Table vibration when ghost speaks
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate(-2px, 0); }
+  20%, 40%, 60%, 80% { transform: translate(2px, 0); }
+}
+
+.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.data-table.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Delete button shake - danger warning! */
+@keyframes deleteShake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-3px, 0) rotate(-2deg); }
+  20% { transform: translate(3px, 0) rotate(2deg); }
+  30% { transform: translate(-3px, 0) rotate(-1deg); }
+  40% { transform: translate(3px, 0) rotate(1deg); }
+  50% { transform: translate(-2px, 0) rotate(-1deg); }
+  60% { transform: translate(2px, 0) rotate(1deg); }
+  70% { transform: translate(-2px, 0) rotate(0deg); }
+  80% { transform: translate(2px, 0) rotate(0deg); }
+  90% { transform: translate(-1px, 0) rotate(0deg); }
+}
+
+.delete-shake {
+  animation: deleteShake 0.6s ease-in-out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   👻 FLOAT-SHIVER - Ghost bobbing with glitch twitch
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes float-shiver {
+  0%, 100% { 
+    transform: translateY(0) rotate(0deg); 
+  }
+  25% { 
+    transform: translateY(-8px) rotate(0deg); 
+  }
+  50% { 
+    transform: translateY(-12px) rotate(5deg); /* Glitch twitch */
+  }
+  55% {
+    transform: translateY(-10px) rotate(-3deg); /* Quick snap back */
+  }
+  75% { 
+    transform: translateY(-6px) rotate(0deg); 
+  }
+}
+
+.ghost-agent {
+  animation: float-shiver 3s ease-in-out infinite;
 }
 
 /* Enhanced ghost agent minimized state */

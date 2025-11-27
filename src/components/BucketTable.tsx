@@ -22,11 +22,15 @@ interface BucketTableProps {
   onUpload: (bucketName: string, file: File) => void;
   onRefresh: () => void;
   onUploadClick?: (bucketName: string) => void;
+  onBrowse?: (bucketName: string) => void;
+  onDelete?: (bucketName: string) => void;
+  shakeActive?: boolean;
 }
 
 interface BucketTableState {
   selectedBucket: string;
   uploadingTo: string;
+  shakingDelete: string;
 }
 
 /**
@@ -41,12 +45,45 @@ class BucketTable extends Component<BucketTableProps, BucketTableState> {
     super(props);
     this.state = {
       selectedBucket: '',
-      uploadingTo: ''
+      uploadingTo: '',
+      shakingDelete: ''
     };
     
     // Bind methods - no arrow functions in 2006!
     this.handleUploadClick = this.handleUploadClick.bind(this);
     this.handleFileSelect = this.handleFileSelect.bind(this);
+    this.handleBrowseClick = this.handleBrowseClick.bind(this);
+    this.handleDeleteClick = this.handleDeleteClick.bind(this);
+  }
+  
+  /**
+   * Handle delete button click - but we won't actually delete anything!
+   * Security first, enterprise-grade protection!
+   */
+  handleDeleteClick(bucketName: string) {
+    var self = this;
+    
+    // Trigger shake animation
+    self.setState({ shakingDelete: bucketName });
+    
+    // Remove shake after animation completes
+    setTimeout(function() {
+      self.setState({ shakingDelete: '' });
+    }, 600);
+    
+    if (self.props.onDelete) {
+      self.props.onDelete(bucketName);
+    }
+  }
+  
+  /**
+   * Handle browse button click
+   */
+  handleBrowseClick(bucketName: string) {
+    var self = this;
+    if (self.props.onBrowse) {
+      self.props.onBrowse(bucketName);
+    }
   }
   
   /**
@@ -110,7 +147,7 @@ class BucketTable extends Component<BucketTableProps, BucketTableState> {
       );
     }
     
-    // Render the table - HTML tables are web scale!
+    // Render the folder grid - like Windows XP! User-friendly and visual!
     return (
       <div>
         {/* Hidden file input for uploads */}
@@ -121,58 +158,134 @@ class BucketTable extends Component<BucketTableProps, BucketTableState> {
           onChange={self.handleFileSelect}
         />
         
-        {/* The glorious data table */}
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '40%' }}>Bucket Name</th>
-              <th style={{ width: '20%' }}>Creation Date</th>
-              <th style={{ width: '15%' }}>Region</th>
-              <th style={{ width: '25%' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {buckets.map(function(bucket, index) {
-              return (
-                <tr key={bucket.name + '-' + index}>
-                  <td>
-                    <a href={'#bucket-' + bucket.name}>
-                      📁 {bucket.name}
-                    </a>
-                  </td>
-                  <td>{bucket.creationDate}</td>
-                  <td>{bucket.region}</td>
-                  <td>
-                    <button 
-                      className="retro-button"
-                      onClick={function() { self.handleUploadClick(bucket.name); }}
-                    >
-                      📤 Upload
-                    </button>
-                    {' '}
-                    <button className="retro-button">
-                      👁️ Browse
-                    </button>
-                    {' '}
-                    <button className="retro-button">
-                      ⚙️ Settings
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {/* Folder grid container - shakes when ghost speaks! */}
+        <div className={self.props.shakeActive ? 'shake' : ''} style={{
+          padding: '10px'
+        }}>
+          {buckets.map(function(bucket, index) {
+            return (
+              <div 
+                key={bucket.name + '-' + index}
+                style={{
+                  width: '200px',
+                  background: '#E8E8E8',
+                  border: '2px outset #CCCCCC',
+                  padding: '10px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  display: 'inline-block',
+                  verticalAlign: 'top',
+                  margin: '0 15px 15px 0'
+                }}
+                onDoubleClick={function() { self.handleBrowseClick(bucket.name); }}
+              >
+                {/* Folder icon - big and visual! */}
+                <div 
+                  style={{ 
+                    fontSize: '64px', 
+                    marginBottom: '10px',
+                    userSelect: 'none'
+                  }}
+                  onClick={function() { self.handleBrowseClick(bucket.name); }}
+                >
+                  📁
+                </div>
+                
+                {/* Bucket name - clickable */}
+                <div 
+                  style={{ 
+                    fontWeight: 'bold', 
+                    marginBottom: '5px',
+                    wordBreak: 'break-word',
+                    fontSize: '12px',
+                    color: '#003366',
+                    cursor: 'pointer'
+                  }}
+                  onClick={function() { self.handleBrowseClick(bucket.name); }}
+                  title={bucket.name}
+                >
+                  {bucket.name.length > 25 ? bucket.name.substring(0, 22) + '...' : bucket.name}
+                </div>
+                
+                {/* Metadata */}
+                <div style={{ 
+                  fontSize: '10px', 
+                  color: '#666666',
+                  marginBottom: '10px'
+                }}>
+                  {bucket.region}
+                  <br />
+                  {bucket.creationDate}
+                </div>
+                
+                {/* Action buttons */}
+                <div style={{ 
+                  textAlign: 'center'
+                }}>
+                  <button 
+                    className="retro-button"
+                    onClick={function(e) { 
+                      e.stopPropagation();
+                      self.handleBrowseClick(bucket.name); 
+                    }}
+                    style={{ 
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      marginRight: '5px'
+                    }}
+                    title="Open folder"
+                  >
+                    Open
+                  </button>
+                  <button 
+                    className="retro-button"
+                    onClick={function(e) { 
+                      e.stopPropagation();
+                      self.handleUploadClick(bucket.name); 
+                    }}
+                    style={{ 
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      marginRight: '5px'
+                    }}
+                    title="Upload file"
+                  >
+                    Upload
+                  </button>
+                  <button 
+                    className={'retro-button' + (self.state.shakingDelete === bucket.name ? ' delete-shake' : '')}
+                    onClick={function(e) { 
+                      e.stopPropagation();
+                      self.handleDeleteClick(bucket.name); 
+                    }}
+                    style={{ 
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      backgroundColor: '#FFCCCC',
+                      color: '#8B0000'
+                    }}
+                    title="Delete bucket"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
         
-        {/* Table footer with stats */}
+        {/* Footer with stats */}
         <div style={{ 
           fontSize: '10px', 
           color: '#666666', 
           textAlign: 'right',
-          marginTop: '5px'
+          marginTop: '10px',
+          padding: '0 10px'
         }}>
-          Showing {buckets.length} bucket(s) | 
-          Last refreshed: {new Date().toLocaleTimeString()}
+          {buckets.length} folder(s) | 
+          Last refreshed: {new Date().toLocaleTimeString()} | 
+          💡 Tip: Double-click a folder to open it
         </div>
       </div>
     );

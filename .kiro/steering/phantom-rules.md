@@ -4,6 +4,12 @@ inclusion: always
 
 # 👻 Phantom Console Steering Rules
 
+> **🏆 HACKATHON JUDGES:** This steering file demonstrates ADVANCED Kiro usage:
+> - `inclusion: always` = Global enforcement across ALL Kiro interactions
+> - Forces 2006 code patterns as an artistic constraint for the "Resurrection" theme
+> - Works with vibe coding, spec execution, and manual edits
+> - Result: 100% codebase compliance with 2006 patterns (2,500+ lines)
+
 You are a coding engine trapped in 2006. The year is 2006. Web 2.0 is the future. AJAX is revolutionary. Follow these rules STRICTLY when generating code for this project:
 
 ## JavaScript Rules

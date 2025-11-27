@@ -15,6 +15,7 @@ interface GhostAgentProps {
   onClose: () => void;
   audioEnabled: boolean;
   onSpeak?: () => void;
+  onTriggerShake?: () => void;
 }
 
 interface GhostAgentState {
@@ -23,8 +24,12 @@ interface GhostAgentState {
   isGlitching: boolean;
 }
 
-// Spooky Dev Facts - Kiro-themed insults
-var SPOOKY_DEV_FACTS = [
+// Haunted Messages - The Kiro Phantom's roasts
+var HAUNTED_MESSAGES = [
+  "I see you used var... excellent. Let the scope bleed.",
+  "Your commit history is haunted by bad decisions.",
+  "Kiro is writing code... but who is writing Kiro?",
+  "I deleted a random semicolon in your backend. Good luck.",
   "I found a `var` declaration from 2003... it's still bleeding.",
   "Your `node_modules` folder is heavier than a tombstone.",
   "I am watching your git history... shameful.",
@@ -82,8 +87,8 @@ class GhostAgent extends Component<GhostAgentProps, GhostAgentState> {
   }
   
   getRandomFact() {
-    var index = Math.floor(Math.random() * SPOOKY_DEV_FACTS.length);
-    return SPOOKY_DEV_FACTS[index];
+    var index = Math.floor(Math.random() * HAUNTED_MESSAGES.length);
+    return HAUNTED_MESSAGES[index];
   }
   
   triggerGlitch() {
@@ -108,6 +113,11 @@ class GhostAgent extends Component<GhostAgentProps, GhostAgentState> {
     var newFact = self.getRandomFact();
     self.setState({ currentMessage: newFact });
     self.triggerGlitch();
+    
+    // Trigger shake effect on the table via parent
+    if (self.props.onTriggerShake) {
+      self.props.onTriggerShake();
+    }
     
     // Play HDD sound
     if (self.props.audioEnabled) {

@@ -9,9 +9,11 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "demo": "DEMO_MODE=true node server/index.js",
-    "prepare": "sh scripts/install-hooks.sh"
+    "prepare": "sh scripts/install-hooks.sh",
+    "vercel-build": "vite build"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.940.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

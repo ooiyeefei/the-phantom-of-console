@@ -51,18 +51,42 @@
 *   **6.2** The Steering Doc **SHALL** contain the instruction: *"You are a coding engine stuck in 2006. Prefer `var` over `const`. Prefer `XMLHttpRequest` over `fetch`. Always add comments explaining why the code is 'web scale'."*
 *   **6.3** Kiro's generated code for the project **MUST** reflect these steering instructions.
 
-### Requirement 7: The Demo "Happy Path"
-**User Story:** As a presenter, I need a fail-safe flow for the video.
-*   **7.1** **Step 1:** User logs in (Sound: Dial-up).
-*   **7.2** **Step 2:** User clicks "List Buckets". MCP fetches real S3 data.
-*   **7.3** **Step 3:** User clicks "Upload". Ghost Agent interrupts: *"File too large for 2006 bandwidth."*
-*   **7.4** **Step 4:** User ignores Ghost, clicks upload anyway. Screen glitches, "Blood" drips down the monitor (CSS effect). File successfully uploads via MCP.
+### Requirement 7: Bucket Contents Browsing
+**User Story:** As a user, I want to browse files within my S3 buckets so that I can see what's stored.
+*   **7.1** The System **SHALL** provide a "👁️ Browse" button for each bucket in the bucket list.
+*   **7.2** WHEN the user clicks "Browse", the System **SHALL** display the contents of that bucket in a table format.
+*   **7.3** The MCP Tool `list_bucket_objects` **SHALL** execute `aws s3 ls s3://<bucket>/` and parse the output into a JSON array.
+*   **7.4** The bucket contents table **SHALL** display columns: File Name, Size, Last Modified, Actions.
+*   **7.5** WHERE the System is in Demo Mode, the MCP Tool `list_bucket_objects` **SHALL** return mock files including `linkin-park-numb.mp3`, `myspace-profile.html`, and `aim-buddy-icon.gif`.
+*   **7.6** The bucket contents view **SHALL** include a "⬅️ Back to Buckets" button to return to the bucket list.
+*   **7.7** WHEN browsing bucket contents, the System **SHALL** play the `hdd-crunch.mp3` sound effect.
 
-### Requirement 8: Technical Architecture
-*   **8.1** **Frontend:** Vite + React (but styled like HTML 4.01).
-*   **8.2** **Backend:** Node.js MCP Server.
-*   **8.3** **Communication:** Frontend calls MCP tools via `window.ai` or equivalent Kiro bridge.
-*   **8.4** **Directory Structure:**
+### Requirement 8: Enhanced File Sharing (2006 File Sharing)
+**User Story:** As a user, I want to share S3 files via temporary links with custom expiration times so that I can distribute content like it's 2006.
+*   **8.1** The System **SHALL** provide a "⚡ Share via AIM" button for each file in the bucket contents view.
+*   **8.2** WHEN the user clicks "Share via AIM", the System **SHALL** display a share dialog with expiration time options.
+*   **8.3** The share dialog **SHALL** offer expiration time options: 1 hour (3600s), 24 hours (86400s), and 7 days (604800s).
+*   **8.4** WHEN the user selects an expiration time and clicks "Generate Link", the Ghost Agent **SHALL** interrupt with the message: *"I'm generating a temporary link because you clearly don't understand IAM Policies."*
+*   **8.5** The MCP Tool `generate_presigned_url` **SHALL** accept parameters `{ bucketName, key, expiresIn }` and execute `aws s3 presign s3://<bucket>/<key> --expires-in <expiresIn>`.
+*   **8.6** WHERE the System is in Demo Mode, the MCP Tool `generate_presigned_url` **SHALL** return a mock URL: `http://limewire.s3.amazon.com/<filename>?token=expired&expires=<expiresIn>`.
+*   **8.7** The System **SHALL** display the generated URL in a copyable text box within the share dialog.
+*   **8.8** The share dialog **SHALL** use the beveled button style and 2006-era modal design consistent with Requirement 1.4.
+*   **8.9** WHEN generating a share link, the System **SHALL** play the `hdd-crunch.mp3` sound effect.
+
+### Requirement 9: The Demo "Happy Path"
+**User Story:** As a presenter, I need a fail-safe flow for the video.
+*   **9.1** **Step 1:** User logs in (Sound: Dial-up).
+*   **9.2** **Step 2:** User clicks "List Buckets". MCP fetches real S3 data.
+*   **9.3** **Step 3:** User clicks "Browse" on a bucket. System displays files.
+*   **9.4** **Step 4:** User clicks "Upload". Ghost Agent interrupts: *"File too large for 2006 bandwidth."*
+*   **9.5** **Step 5:** User ignores Ghost, clicks upload anyway. Screen glitches, "Blood" drips down the monitor (CSS effect). File successfully uploads via MCP.
+*   **9.6** **Step 6:** User clicks "Share via AIM" on a file. Ghost interrupts with IAM message. User selects expiration time and gets shareable URL.
+
+### Requirement 10: Technical Architecture
+*   **10.1** **Frontend:** Vite + React (but styled like HTML 4.01).
+*   **10.2** **Backend:** Node.js MCP Server.
+*   **10.3** **Communication:** Frontend calls MCP tools via `window.ai` or equivalent Kiro bridge.
+*   **10.4** **Directory Structure:**
     ```text
     /
     ├── .kiro/
@@ -70,6 +94,11 @@
     │   ├── hooks/
     │   └── steering.md
     ├── src/ (Frontend)
+    │   ├── components/
+    │   │   ├── BucketTable.tsx
+    │   │   ├── BucketContents.tsx (NEW)
+    │   │   ├── ShareDialog.tsx (NEW)
+    │   │   └── GhostAgent.tsx
     ├── server/ (MCP)
     └── README.md
     ```

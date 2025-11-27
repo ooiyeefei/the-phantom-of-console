@@ -7,8 +7,16 @@ A **Kiroween Hackathon** entry in the **"Resurrection"** category. This project 
 
 ## 🎃 What is this?
 
-The Phantom of the Console is a fully functional S3 management tool disguised as a haunted, retro HTML dashboard from 2006. It features:
+**S3 Made Easy: Manage • Upload • Share Securely**
 
+The Phantom of the Console is a fully functional S3 management tool disguised as a haunted, retro HTML dashboard from 2006. It makes AWS S3 accessible and fun!
+
+### Core Features
+- **📦 Manage Buckets**: Browse, create, and organize your S3 buckets with a retro folder interface
+- **📤 Upload Files**: Drag-and-drop file uploads with instant feedback (and ghost interruptions!)
+- **🔗 Share Securely**: Generate temporary pre-signed URLs with custom expiration times (1hr, 24hr, 7 days)
+
+### Spooky Extras
 - **Retro UI**: Table-based layouts, beveled buttons, and that classic orange/blue AWS color scheme
 - **The Ghost Agent**: A bitter 2006 sysadmin AI who interrupts you with complaints about "the cloud"
 - **Real AWS Integration**: Actually manages your S3 buckets via MCP tools
@@ -39,7 +47,16 @@ npm run prepare
 
 ### Running the App
 
-**Demo Mode (Séance Mode)** - No AWS credentials needed:
+**🚀 Deploy to Vercel (Recommended)**
+```bash
+npm i -g vercel
+vercel
+```
+That's it! Frontend + backend deployed in one command. See [VERCEL_DEPLOY.md](VERCEL_DEPLOY.md) for details.
+
+**💻 Run Locally**
+
+Demo Mode (No AWS needed):
 ```bash
 # Start the backend in demo mode
 npm run demo
@@ -48,7 +65,7 @@ npm run demo
 npm run dev
 ```
 
-**Live Mode** - With real AWS:
+Live Mode (With real AWS):
 ```bash
 # Make sure AWS CLI is configured
 aws configure
@@ -118,6 +135,7 @@ phantom-console/
 ## 🔊 Audio Setup
 
 Add these audio files to `public/sounds/`:
+- `halloween-spooky.mp3` - Spooky Halloween background music (loops continuously)
 - `dialup.mp3` - 3-second modem handshake sound
 - `hdd-crunch.mp3` - Hard drive read/write noise
 - `error.mp3` - Windows XP error sound
