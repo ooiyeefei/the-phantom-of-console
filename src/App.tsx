@@ -700,6 +700,14 @@ class App extends Component<{}, AppState> {
           if (result.success) {
             self.triggerGhost('success', 'Fine, your file uploaded. But don\'t come crying to me when "the cloud" loses all your data! I\'ve seen things... terrible things in us-east-1.');
             self.loadBuckets();
+          } else if (result.tooLarge) {
+            // File is too large - show helpful message
+            self.triggerGhost('error', 'WHOA THERE! That file is TOO BIG for our serverless function! Files must be under 3MB. In MY day, we had 1.44MB floppy disks and we were GRATEFUL!');
+            self.handleError({
+              code: 'FileTooLarge',
+              message: result.error || 'File is too large (max 3MB)',
+              service: 'S3'
+            });
           } else {
             self.handleError({
               code: 'UploadError',
