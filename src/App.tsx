@@ -343,8 +343,10 @@ class App extends Component<{}, AppState> {
   onCredentialsChanged() {
     var self = this;
     self.playDialupSound(); // Play dialup when connecting to AWS!
-    self.setState({ useClientSideAWS: hasCredentials() });
-    self.loadBuckets();
+    self.setState({ useClientSideAWS: hasCredentials() }, function() {
+      // Load buckets after state is updated
+      self.loadBuckets();
+    });
   }
   
   /**
